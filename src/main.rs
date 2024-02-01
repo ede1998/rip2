@@ -1,10 +1,10 @@
 use clap::{App, Arg, crate_authors, crate_version};
-use std::io::{BufRead, BufReader, Read, Write};
+use std::io::{BufRead, BufReader, Error, ErrorKind, Write};
 use std::os::unix::fs::{FileTypeExt, PermissionsExt};
 use std::path::{Path, PathBuf};
+use std::process::ExitCode;
 use std::{env, fs, io};
 use walkdir::WalkDir;
-use error_chain::bail;
 
 mod util;
 
@@ -20,26 +20,15 @@ struct RecordItem<'a> {
     dest: &'a Path,
 }
 
-fn main() {
+fn main() -> ExitCode {
     if let Err(ref e) = run() {
-        let stderr = &mut ::std::io::stderr();
-        let errmsg = "Error writing to stderr";
-
-        writeln!(stderr, "error: {}", e).expect(errmsg);
-
-        for e in e.iter().skip(1) {
-            writeln!(stderr, "caused by: {}", e).expect(errmsg);
-        }
-
-        if let Some(backtrace) = e.backtrace() {
-            writeln!(stderr, "backtrace: {:?}", backtrace).expect(errmsg);
-        }
-
-        ::std::process::exit(1);
+        println!("Exception: {}", e);
+        return ExitCode::FAILURE;
     }
+    ExitCode::SUCCESS
 }
 
-fn run() -> Result<()> {
+fn run() -> Result<(), Error> {
     let matches = App::new("rip")
         .version(crate_version!())
         .author(crate_authors!())
@@ -89,8 +78,15 @@ Send files to the graveyard (/tmp/graveyard-$USER by default) instead of unlinki
                 .long("inspect"),
         )
         .get_matches();
-
-    let graveyard: &PathBuf = &{
+    
+    // This selects the location of deleted
+    // files based on the following order (from
+    // first choice to last):
+    // 1. Path passed with --graveyard
+    // 2. Path pointed by the $GRAVEYARD variable
+    // 3. $XDG_DATA_HOME/graveyard (only if XDG_DATA_HOME is defined)
+    // 4. /tmp/graveyard-user
+    let graveyard: PathBuf = {
         if let Some(flag) = matches.value_of("graveyard") {
             flag.to_owned()
         } else if let Ok(env) = env::var("GRAVEYARD") {
@@ -104,23 +100,30 @@ Send files to the graveyard (/tmp/graveyard-$USER by default) instead of unlinki
         } else {
             format!("{}-{}", GRAVEYARD, util::get_user())
         }}.into();
-
+    
+    // If the user wishes to restore everything
     if matches.is_present("decompose") {
         if util::prompt_yes("Really unlink the entire graveyard?") {
-            fs::remove_dir_all(graveyard).chain_err(|| "Couldn't unlink graveyard")?;
+            if let Err(e) = fs::remove_dir_all(graveyard) {
+                return Err(Error::new(e.kind(), "Couldn't unlink graveyard"));
+            }
         }
         return Ok(());
     }
-
+    
+    // Stores the deleted files
     let record: &Path = &graveyard.join(RECORD);
-    let cwd: PathBuf = env::current_dir().chain_err(|| "Failed to get current dir")?;
+    let cwd: PathBuf = match env::current_dir() {
+        Ok(path) => path,
+        Err(e) => return Err(e),
+    };
 
     if let Some(t) = matches.values_of("unbury") {
         // Vector to hold the grave path of items we want to unbury.
         // This will be used to determine which items to remove from the
         // record following the unbury.
         // Initialize it with the targets passed to -r
-        let graves_to_exhume: &mut Vec<PathBuf> = &mut t.map(PathBuf::from).collect();
+        let mut graves_to_exhume: Vec<PathBuf> = t.map(PathBuf::from).collect();
 
         // If -s is also passed, push all files found by seance onto
         // the graves_to_exhume.
@@ -141,39 +144,49 @@ Send files to the graveyard (/tmp/graveyard-$USER by default) instead of unlinki
         }
 
         // Go through the graveyard and exhume all the graves
-        let f = fs::File::open(record).chain_err(|| "Couldn't read the record")?;
-        for line in lines_of_graves(f, graves_to_exhume) {
+        let f = match fs::File::open(record) {
+            Ok(file) => file,
+            Err(err) => return Err(err),
+        };
+
+        for line in lines_of_graves(f, &graves_to_exhume) {
             let entry: RecordItem = record_entry(&line);
-            let orig: &Path = &{
-                if util::symlink_exists(entry.orig) {
-                    util::rename_grave(entry.orig)
-                } else {
-                    PathBuf::from(entry.orig)
-                }
+            let orig: PathBuf = match util::symlink_exists(entry.orig) {
+                true => util::rename_grave(entry.orig),
+                false => PathBuf::from(entry.orig),
             };
-            bury(entry.dest, orig).chain_err(|| {
-                format!(
-                    "Unbury failed: couldn't copy files from {} to {}",
-                    entry.dest.display(),
-                    orig.display()
-                )
-            })?;
+
+            if let Err(e) = bury(entry.dest, &orig) {
+                return Err(Error::new(
+                    e.kind(),
+                    format!(
+                        "Unbury failed: couldn't copy files from {} to {}",
+                        entry.dest.display(),
+                        orig.display()
+                    )));
+            };
             println!("Returned {} to {}", entry.dest.display(), orig.display());
         }
 
         // Reopen the record and then delete lines corresponding to exhumed graves
         if let Err(e) = fs::File::open(record)
-            .and_then(|f| delete_lines_from_record(f, record, graves_to_exhume))
+            .and_then(|f| delete_lines_from_record(f, record, &graves_to_exhume))
         {
-            bail!("Failed to remove unburied files from record: {}", e);
+            return Err(Error::new(
+                e.kind(),
+                format!("Failed to remove unburied files from record: {}", e)
+            ));
         }
         return Ok(());
     }
 
     if matches.is_present("seance") {
         let gravepath = util::join_absolute(graveyard, cwd);
-        let f = fs::File::open(record).chain_err(|| "Failed to read record")?;
-        for grave in seance(f, gravepath.to_string_lossy()) {
+        let f = fs::File::open(record);
+        if let Err(_) = f {
+            return Err(Error::new(ErrorKind::NotFound, "Failed to read record!"));
+        }
+        for grave in seance(f.unwrap(), gravepath.to_string_lossy()) {
             println!("{}", grave.display());
         }
         return Ok(());
@@ -185,9 +198,11 @@ Send files to the graveyard (/tmp/graveyard-$USER by default) instead of unlinki
             if let Ok(metadata) = fs::symlink_metadata(target) {
                 // Canonicalize the path unless it's a symlink
                 let source = &if !metadata.file_type().is_symlink() {
-                    cwd.join(target)
-                        .canonicalize()
-                        .chain_err(|| "Failed to canonicalize path")?
+                    let cwd = cwd.join(target).canonicalize();
+                    if let Err(e) = cwd {
+                        return Err(Error::new(e.kind(), "Failed to canonicalize path"));
+                    }
+                    cwd.unwrap()
                 } else {
                     cwd.join(target)
                 };
@@ -240,11 +255,13 @@ Send files to the graveyard (/tmp/graveyard-$USER by default) instead of unlinki
 
                 // If rip is called on a file already in the graveyard, prompt
                 // to permanently delete it instead.
-                if source.starts_with(graveyard) {
+                if source.starts_with(&graveyard) {
                     println!("{} is already in the graveyard.", source.display());
                     if util::prompt_yes("Permanently unlink it?") {
                         if fs::remove_dir_all(source).is_err() {
-                            fs::remove_file(source).chain_err(|| "Couldn't unlink")?;
+                            if let Err(e) = fs::remove_file(source) {
+                                return Err(Error::new(e.kind(), "Couldn't unlink!"));
+                            }
                         }
                         continue;
                     } else {
@@ -254,7 +271,7 @@ Send files to the graveyard (/tmp/graveyard-$USER by default) instead of unlinki
                 }
 
                 let dest: &Path = &{
-                    let dest = util::join_absolute(graveyard, source);
+                    let dest = util::join_absolute(&graveyard, source);
                     // Resolve a name conflict if necessary
                     if util::symlink_exists(&dest) {
                         util::rename_grave(dest)
@@ -262,18 +279,23 @@ Send files to the graveyard (/tmp/graveyard-$USER by default) instead of unlinki
                         dest
                     }
                 };
-
-                bury(source, dest)
-                    .or_else(|e| {
-                        fs::remove_dir_all(dest).ok();
-                        Err(e)
-                    })
-                    .chain_err(|| "Failed to bury file")?;
+                
+                {
+                    let res = bury(source, dest)
+                        .or_else(|e| {
+                            fs::remove_dir_all(dest).ok();
+                            Err(e)
+                        });
+                    if let Err(e) = res {
+                        return Err(Error::new(e.kind(), "Failed to bury file"));
+                    }
+                }
                 // Clean up any partial buries due to permission error
-                write_log(source, dest, record)
-                    .chain_err(|| format!("Failed to write record at {}", record.display()))?;
+                if let Err(e) = write_log(source, dest, record) {
+                    return Err(Error::new(e.kind(), format!("Failed to write record at {}", record.display())));
+                }
             } else {
-                bail!("Cannot remove {}: no such file or directory", target);
+                return Err(Error::new(ErrorKind::NotFound, format!("Cannot remove {}: no such file or directory", target)));
             }
         }
     } else {
@@ -306,7 +328,7 @@ where
     Ok(())
 }
 
-fn bury<S: AsRef<Path>, D: AsRef<Path>>(source: S, dest: D) -> Result<()> {
+fn bury<S: AsRef<Path>, D: AsRef<Path>>(source: S, dest: D) -> Result<(), Error> {
     let (source, dest) = (source.as_ref(), dest.as_ref());
     // Try a simple rename, which will only work within the same mount point.
     // Trying to rename across filesystems will throw errno 18.
@@ -315,56 +337,83 @@ fn bury<S: AsRef<Path>, D: AsRef<Path>>(source: S, dest: D) -> Result<()> {
     }
 
     // If that didn't work, then copy and rm.
-    let parent = dest.parent().ok_or("Couldn't get parent of dest")?;
-    fs::create_dir_all(parent).chain_err(|| "Couldn't create parent dir")?;
+    {
+        let parent = dest.parent();
+        if let None = parent {
+            return Err(Error::new(ErrorKind::NotFound, "Could not get parent of dest!"));
+        }
+        
+        let parent = parent.unwrap();
+        if let Err(e) = fs::create_dir_all(parent) {
+            return Err(e);
+        }
+    }
 
-    if fs::symlink_metadata(source)
-        .chain_err(|| "Couldn't get metadata")?
-        .is_dir()
+    let sym_link_data = fs::symlink_metadata(source);
+    if let Err(e) = sym_link_data {
+        return Err(e);
+    }
+    let sym_link_data = sym_link_data.unwrap();
+    if sym_link_data.is_dir()
     {
         // Walk the source, creating directories and copying files as needed
         for entry in WalkDir::new(source).into_iter().filter_map(|e| e.ok()) {
             // Path without the top-level directory
-            let orphan: &Path = entry
-                .path()
-                .strip_prefix(source)
-                .chain_err(|| "Parent directory isn't a prefix of child directories?")?;
+            let orphan: &Path = match entry.path().strip_prefix(source){
+                Ok(p) => p,
+                Err(_) => return Err(Error::new(ErrorKind::Other, "Parent directory isn't a prefix of child directories?")),
+            };
+
             if entry.file_type().is_dir() {
-                fs::create_dir_all(dest.join(orphan)).chain_err(|| {
-                    format!(
-                        "Failed to create {} in {}",
-                        entry.path().display(),
-                        dest.join(orphan).display()
-                    )
-                })?;
+                if let Err(e) = fs::create_dir_all(dest.join(orphan)) {
+                    return Err(Error::new(
+                        e.kind(), 
+                        format!(
+                            "Failed to create {} in {}",
+                            entry.path().display(),
+                            dest.join(orphan).display()
+                    )));
+                }
             } else {
-                copy_file(entry.path(), dest.join(orphan)).chain_err(|| {
-                    format!(
-                        "Failed to copy file from {} to {}",
-                        entry.path().display(),
-                        dest.join(orphan).display()
-                    )
-                })?;
+                if let Err(e) = copy_file(entry.path(), dest.join(orphan)) {
+                    return Err(Error::new(
+                        e.kind(), 
+                        format!(
+                            "Failed to copy file from {} to {}",
+                            entry.path().display(),
+                            dest.join(orphan).display()
+                    )));
+                }
             }
         }
-        fs::remove_dir_all(source)
-            .chain_err(|| format!("Failed to remove dir: {}", source.display()))?;
+        if let Err(err) = fs::remove_dir_all(source) {
+            return Err(Error::new(
+                err.kind(),
+                format!("Failed to remove dir: {}", source.display())
+            ))
+        }
     } else {
-        copy_file(source, dest).chain_err(|| {
-            format!(
+        if let Err(e) = copy_file(source, dest) {
+            return Err(Error::new(
+                e.kind(), 
+                format!(
                 "Failed to copy file from {} to {}",
                 source.display(),
                 dest.display()
-            )
-        })?;
-        fs::remove_file(source)
-            .chain_err(|| format!("Failed to remove file: {}", source.display()))?;
+            )));
+        }
+        if let Err(e) = fs::remove_file(source) {
+            return Err(Error::new(
+                e.kind(),
+                format!("Failed to remove file: {}", source.display())
+            ))
+        }
     }
 
     Ok(())
 }
 
-fn copy_file<S: AsRef<Path>, D: AsRef<Path>>(source: S, dest: D) -> io::Result<()> {
+fn copy_file<S: AsRef<Path>, D: AsRef<Path>>(source: S, dest: D) -> Result<(), Error> {
     let (source, dest) = (source.as_ref(), dest.as_ref());
     let metadata = fs::symlink_metadata(source)?;
     let filetype = metadata.file_type();
@@ -414,31 +463,49 @@ fn copy_file<S: AsRef<Path>, D: AsRef<Path>>(source: S, dest: D) -> io::Result<(
 /// Return the path in the graveyard of the last file to be buried.
 /// As a side effect, any valid last files that are found in the record but
 /// not on the filesystem are removed from the record.
-fn get_last_bury<R: AsRef<Path>>(record: R) -> io::Result<PathBuf> {
-    let graves_to_exhume: &mut Vec<PathBuf> = &mut Vec::new();
-    let mut f = fs::File::open(record.as_ref())?;
-    let mut contents = String::new();
-    f.read_to_string(&mut contents)?;
-
-    // This could be cleaned up more if/when for loops can return a value
+fn get_last_bury<R: AsRef<Path>>(record: R) -> Result<PathBuf, Error> {
+    let f = match fs::File::open(record.as_ref()) {
+        Ok(file) => file,
+        Err(err) => return Err(err),
+    };
+    
+    let contents = {
+        let path_f = PathBuf::from(record.as_ref()) ;
+        let string_f = fs::read_to_string(&path_f);
+        if let Err(e) = string_f {
+            return Err(e)
+        }
+        string_f.unwrap()
+    };
+    
+    // This will be None if there is nothing, or Some
+    // if there is items in the vector
+    let mut graves_to_exhume: Option<Vec<PathBuf>> = None;
     for entry in contents.lines().rev().map(record_entry) {
         // Check that the file is still in the graveyard.
         // If it is, return the corresponding line.
         if util::symlink_exists(entry.dest) {
-            if !graves_to_exhume.is_empty() {
-                delete_lines_from_record(f, record, graves_to_exhume)?;
+            if !graves_to_exhume.is_some() {
+                if let Err(e) = delete_lines_from_record(f, record, &graves_to_exhume.unwrap()) {
+                    return Err(e);
+                }
             }
             return Ok(PathBuf::from(entry.dest));
         } else {
             // File is gone, mark the grave to be removed from the record
-            graves_to_exhume.push(PathBuf::from(entry.dest));
+            if graves_to_exhume.is_none() {
+                graves_to_exhume = Some(Vec::new());
+            }
+            graves_to_exhume.as_mut().unwrap().push(PathBuf::from(entry.dest));
         }
     }
 
-    if !graves_to_exhume.is_empty() {
-        delete_lines_from_record(f, record, graves_to_exhume)?;
+    if graves_to_exhume.is_some() {
+        if let Err(e) = delete_lines_from_record(f, record, &graves_to_exhume.unwrap()) {
+            return Err(e);
+        }
     }
-    Err(io::Error::new(io::ErrorKind::NotFound, "But nobody came"))
+    Err(Error::new(ErrorKind::NotFound, "No files in graveyard"))
 }
 
 /// Parse a line in the record into a `RecordItem`
@@ -473,23 +540,25 @@ fn seance<T: AsRef<str>>(f: fs::File, gravepath: T) -> impl Iterator<Item = Path
 
 /// Takes a vector of grave paths and removes the respective lines from the record
 fn delete_lines_from_record<R: AsRef<Path>>(
-    f: fs::File,
+    current_record: fs::File,
     record: R,
     graves: &[PathBuf],
-) -> io::Result<()> {
+) -> Result<(), Error> {
     let record = record.as_ref();
     // Get the lines to write back to the record, which is every line except
     // the ones matching the exhumed graves.  Store them in a vector
     // since we'll be overwriting the record in-place.
-    let lines_to_write: Vec<String> = BufReader::new(f)
+    let lines_to_write: Vec<String> = BufReader::new(current_record)
         .lines()
         .filter_map(|l| l.ok())
         .filter(|l| !graves.into_iter().any(|y| y == record_entry(l).dest))
         .collect();
-    let mut f = fs::File::create(record)?;
-    for line in lines_to_write {
-        writeln!(f, "{}", line)?;
+    let f = fs::File::create(record);
+    if let Err(err) = f {
+        return Err(err);
     }
-
+    for line in lines_to_write {
+        writeln!(f.as_ref().unwrap(), "{}", line)?;
+    }
     Ok(())
 }
