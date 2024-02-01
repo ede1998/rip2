@@ -103,6 +103,18 @@ Send files to the graveyard (/tmp/graveyard-$USER by default) instead of unlinki
     }
     .into();
 
+    if !graveyard.exists() {
+        if let Err(e) = fs::create_dir(&graveyard){
+            return Err(e);
+        }
+        let metadata = graveyard.metadata();
+        if let Err(e) = metadata {
+            return Err(e);
+        }
+        let mut permissions = metadata.unwrap().permissions();
+        permissions.set_mode(0o700);
+    }
+
     // If the user wishes to restore everything
     if matches.is_present("decompose") {
         if util::prompt_yes("Really unlink the entire graveyard?") {
