@@ -1,12 +1,13 @@
-use clap::{crate_authors, crate_version, App, Arg};
 use std::io::{BufRead, BufReader, Error, ErrorKind, Write};
 use std::os::unix::fs::{FileTypeExt, PermissionsExt};
 use std::path::{Path, PathBuf};
 use std::process::ExitCode;
 use std::{env, fs, io};
+use clap::{CommandFactory, Parser};
 use walkdir::WalkDir;
 
 mod util;
+mod args;
 
 const GRAVEYARD: &str = "/tmp/graveyard";
 const RECORD: &str = ".record";
@@ -29,56 +30,8 @@ fn main() -> ExitCode {
 }
 
 fn run() -> Result<(), Error> {
-    let matches = App::new("rip")
-        .version(crate_version!())
-        .author(crate_authors!())
-        .about(
-            "Rm ImProved
-Send files to the graveyard (/tmp/graveyard-$USER by default) instead of unlinking them.",
-        )
-        .arg(
-            Arg::with_name("TARGET")
-                .help("File or directory to remove")
-                .multiple(true)
-                .index(1),
-        )
-        .arg(
-            Arg::with_name("graveyard")
-                .help("Directory where deleted files go to rest")
-                .long("graveyard")
-                .takes_value(true),
-        )
-        .arg(
-            Arg::with_name("decompose")
-                .help("Permanently deletes (unlink) the entire graveyard")
-                .short("d")
-                .long("decompose"),
-        )
-        .arg(
-            Arg::with_name("seance")
-                .help("Prints files that were sent under the current directory")
-                .short("s")
-                .long("seance"),
-        )
-        .arg(
-            Arg::with_name("unbury")
-                .help(
-                    "Undo the last removal by the current user, or specify some file(s) in the \
-                   graveyard.  Combine with -s to restore everything printed by -s.",
-                )
-                .short("u")
-                .long("unbury")
-                .value_name("target")
-                .min_values(0),
-        )
-        .arg(
-            Arg::with_name("inspect")
-                .help("Prints some info about TARGET before prompting for action")
-                .short("i")
-                .long("inspect"),
-        )
-        .get_matches();
-
+    let cli = args::Args::parse();
+        
     // This selects the location of deleted
     // files based on the following order (from
     // first choice to last):
@@ -87,18 +40,18 @@ Send files to the graveyard (/tmp/graveyard-$USER by default) instead of unlinki
     // 3. $XDG_DATA_HOME/graveyard (only if XDG_DATA_HOME is defined)
     // 4. /tmp/graveyard-user
     let graveyard: PathBuf = {
-        if let Some(flag) = matches.value_of("graveyard") {
-            flag.to_owned()
+        if let Some(flag) = cli.graveyard {
+            flag
         } else if let Ok(env) = env::var("GRAVEYARD") {
-            env
+            PathBuf::from(env)
         } else if let Ok(mut env) = env::var("XDG_DATA_HOME") {
             if !env.ends_with(std::path::MAIN_SEPARATOR) {
                 env.push(std::path::MAIN_SEPARATOR);
             }
             env.push_str("graveyard");
-            env
+            PathBuf::from(env)
         } else {
-            format!("{}-{}", GRAVEYARD, util::get_user())
+            PathBuf::from(format!("{}-{}", GRAVEYARD, util::get_user()))
         }
     }
     .into();
@@ -116,7 +69,7 @@ Send files to the graveyard (/tmp/graveyard-$USER by default) instead of unlinki
     }
 
     // If the user wishes to restore everything
-    if matches.is_present("decompose") {
+    if cli.decompose {
         if util::prompt_yes("Really unlink the entire graveyard?") {
             if let Err(e) = fs::remove_dir_all(graveyard) {
                 return Err(Error::new(e.kind(), "Couldn't unlink graveyard"));
@@ -132,16 +85,16 @@ Send files to the graveyard (/tmp/graveyard-$USER by default) instead of unlinki
         Err(e) => return Err(e),
     };
 
-    if let Some(t) = matches.values_of("unbury") {
+    if let Some(t) = cli.restore {
         // Vector to hold the grave path of items we want to unbury.
         // This will be used to determine which items to remove from the
         // record following the unbury.
         // Initialize it with the targets passed to -r
-        let mut graves_to_exhume: Vec<PathBuf> = t.map(PathBuf::from).collect();
+        let mut graves_to_exhume: Vec<PathBuf> = t.iter().map(PathBuf::from).collect();
 
         // If -s is also passed, push all files found by seance onto
         // the graves_to_exhume.
-        if matches.is_present("seance") {
+        if cli.seance {
             if let Ok(f) = fs::File::open(record) {
                 let gravepath = util::join_absolute(graveyard, cwd)
                     .to_string_lossy()
@@ -197,7 +150,7 @@ Send files to the graveyard (/tmp/graveyard-$USER by default) instead of unlinki
         return Ok(());
     }
 
-    if matches.is_present("seance") {
+    if cli.seance {
         let gravepath = util::join_absolute(graveyard, cwd);
         let f = fs::File::open(record);
         if let Err(_) = f {
@@ -209,27 +162,27 @@ Send files to the graveyard (/tmp/graveyard-$USER by default) instead of unlinki
         return Ok(());
     }
 
-    if let Some(targets) = matches.values_of("TARGET") {
-        for target in targets {
+    if !cli.targets.is_empty() {
+        for target in cli.targets {
             // Check if source exists
-            if let Ok(metadata) = fs::symlink_metadata(target) {
+            if let Ok(metadata) = fs::symlink_metadata(&target) {
                 // Canonicalize the path unless it's a symlink
                 let source = &if !metadata.file_type().is_symlink() {
-                    let cwd = cwd.join(target).canonicalize();
+                    let cwd = cwd.join(&target).canonicalize();
                     if let Err(e) = cwd {
                         return Err(Error::new(e.kind(), "Failed to canonicalize path"));
                     }
                     cwd.unwrap()
                 } else {
-                    cwd.join(target)
+                    cwd.join(&target)
                 };
 
-                if matches.is_present("inspect") {
+                if cli.inspect {
                     if metadata.is_dir() {
                         // Get the size of the directory and all its contents
                         println!(
                             "{}: directory, {} including:",
-                            target,
+                            target.to_str().unwrap(),
                             util::humanize_bytes(
                                 WalkDir::new(source)
                                     .into_iter()
@@ -251,7 +204,7 @@ Send files to the graveyard (/tmp/graveyard-$USER by default) instead of unlinki
                             println!("{}", entry.path().display());
                         }
                     } else {
-                        println!("{}: file, {}", target, util::humanize_bytes(metadata.len()));
+                        println!("{}: file, {}", &target.to_str().unwrap(), util::humanize_bytes(metadata.len()));
                         // Read the file and print the first few lines
                         if let Ok(f) = fs::File::open(source) {
                             for line in BufReader::new(f)
@@ -265,7 +218,7 @@ Send files to the graveyard (/tmp/graveyard-$USER by default) instead of unlinki
                             println!("Error reading {}", source.display());
                         }
                     }
-                    if !util::prompt_yes(format!("Send {} to the graveyard?", target)) {
+                    if !util::prompt_yes(format!("Send {} to the graveyard?", target.to_str().unwrap())) {
                         continue;
                     }
                 }
@@ -316,12 +269,12 @@ Send files to the graveyard (/tmp/graveyard-$USER by default) instead of unlinki
             } else {
                 return Err(Error::new(
                     ErrorKind::NotFound,
-                    format!("Cannot remove {}: no such file or directory", target),
+                    format!("Cannot remove {}: no such file or directory", target.to_str().unwrap()),
                 ));
             }
         }
     } else {
-        println!("{}\nrip -h for help", matches.usage());
+        let _ = args::Args::command().print_help();
     }
 
     Ok(())
