@@ -1,22 +1,10 @@
-// -*- compile-command: "cargo build" -*-
-#[macro_use]
-extern crate clap;
-extern crate core;
-#[macro_use]
-extern crate error_chain;
-extern crate time;
-extern crate walkdir;
-
-use clap::{App, Arg};
+use clap::{App, Arg, crate_authors, crate_version};
 use std::io::{BufRead, BufReader, Read, Write};
 use std::os::unix::fs::{FileTypeExt, PermissionsExt};
 use std::path::{Path, PathBuf};
 use std::{env, fs, io};
 use walkdir::WalkDir;
-mod errors {
-    error_chain! {}
-}
-use errors::*;
+use error_chain::bail;
 
 mod util;
 
