@@ -20,15 +20,12 @@ pub struct Args {
     #[arg(short, long)]
     pub seance: bool,
 
-    /// Undo the last removal
-    /// by the user
-    #[arg(short, long)]
-    pub unbury: bool,
+    /// Restore the specified
+    /// files or the last file 
+    /// if none are specified
+    #[arg(short, long, num_args = 0)]
+    pub unbury: Option<Vec<PathBuf>>,
 
-    /// Restore specified files
-    #[arg(short, long)]
-    pub restore: Option<Vec<String>>,
-    
     /// Print some info about TARGET before
     /// burying
     #[arg(short, long)]

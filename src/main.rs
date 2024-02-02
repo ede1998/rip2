@@ -85,7 +85,7 @@ fn run() -> Result<(), Error> {
         Err(e) => return Err(e),
     };
 
-    if let Some(t) = cli.restore {
+    if let Some(t) = cli.unbury {
         // Vector to hold the grave path of items we want to unbury.
         // This will be used to determine which items to remove from the
         // record following the unbury.
@@ -465,31 +465,25 @@ fn get_last_bury<R: AsRef<Path>>(record: R) -> Result<PathBuf, Error> {
 
     // This will be None if there is nothing, or Some
     // if there is items in the vector
-    let mut graves_to_exhume: Option<Vec<PathBuf>> = None;
+    let mut graves_to_exhume: Vec<PathBuf> = Vec::new();
     for entry in contents.lines().rev().map(record_entry) {
         // Check that the file is still in the graveyard.
         // If it is, return the corresponding line.
         if util::symlink_exists(entry.dest) {
-            if !graves_to_exhume.is_some() {
-                if let Err(e) = delete_lines_from_record(f, record, &graves_to_exhume.unwrap()) {
+            if !graves_to_exhume.is_empty() {
+                if let Err(e) = delete_lines_from_record(f, record, &graves_to_exhume) {
                     return Err(e);
                 }
             }
             return Ok(PathBuf::from(entry.dest));
         } else {
             // File is gone, mark the grave to be removed from the record
-            if graves_to_exhume.is_none() {
-                graves_to_exhume = Some(Vec::new());
-            }
-            graves_to_exhume
-                .as_mut()
-                .unwrap()
-                .push(PathBuf::from(entry.dest));
+            graves_to_exhume.push(PathBuf::from(entry.dest));
         }
     }
 
-    if graves_to_exhume.is_some() {
-        if let Err(e) = delete_lines_from_record(f, record, &graves_to_exhume.unwrap()) {
+    if !graves_to_exhume.is_empty() {
+        if let Err(e) = delete_lines_from_record(f, record, &graves_to_exhume) {
             return Err(e);
         }
     }
