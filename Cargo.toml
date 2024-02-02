@@ -2,7 +2,7 @@
 edition = '2021'
 name = "rm-improved"
 version = "0.14.0"
-authors = ["mail@nivekuil.com", "mahid@standingpad.org"]
+authors = ["mahid@standingpad.org", "mail@nivekuil.com"]
 description = "rip: a safe and ergonomic alternative to rm"
 repository = "https://github.com/nivekuil/rip"
 readme = "README.org"
