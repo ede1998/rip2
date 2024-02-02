@@ -1,5 +1,4 @@
 * rip (Rm ImProved)
-[[https://crates.io/crates/rm-improved][https://img.shields.io/crates/v/rm-improved.svg]]
 
 =rip= is a command-line deletion tool focused on safety, ergonomics, and performance.  It favors a simple interface, and does /not/ implement the xdg-trash spec or attempt to achieve the same goals.
 
