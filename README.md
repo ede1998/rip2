@@ -55,7 +55,7 @@ Undo the last deletion
 
 ```bash
 $ rip-u
->eturned /tmp/graveyard-jack/home/jack/file1 to /home/jack/file1
+Returned /tmp/graveyard-jack/home/jack/file1 to /home/jack/file1
 ```
 
 Print some info (size and first few lines in a file, total size and first few files in a directory) about the target and then prompt for deletion
