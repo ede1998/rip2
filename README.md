@@ -111,7 +111,7 @@ You probably shouldn't alias `rm` to `rip`.  Unlearning muscle memory is hard, b
 What I instead recommend is aliasing `rm` to an echo statement that simply reminds you to use `rip`:
 
 ```bash
-alias rm="echo Use 'trash' instead of rm."
+alias rm="echo Use 'rip' instead of rm."
 ```
 
 **Graveyard location.**
