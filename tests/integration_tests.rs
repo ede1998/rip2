@@ -76,10 +76,7 @@ fn test_bury_unbury() {
     assert!(metadata(&test_env.graveyard).is_ok());
 
     // And is now in the graveyard
-    let grave_datafile_path = util::join_absolute(
-        &test_env.graveyard,
-        &datafile_path_canonical
-    );
+    let grave_datafile_path = util::join_absolute(&test_env.graveyard, &datafile_path_canonical);
     // test_env.graveyard.join(&datafile_path);
     assert!(metadata(&grave_datafile_path).is_ok());
     // with the right data

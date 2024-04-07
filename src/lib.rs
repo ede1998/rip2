@@ -1,12 +1,12 @@
 use clap::CommandFactory;
-use std::{env, fs, io};
 use std::io::{BufRead, BufReader, Error, ErrorKind, Write};
 use std::os::unix::fs::{FileTypeExt, PermissionsExt};
 use std::path::{Path, PathBuf};
+use std::{env, fs, io};
 use walkdir::WalkDir;
 
-pub mod util;
 pub mod args;
+pub mod util;
 
 const GRAVEYARD: &str = "/tmp/graveyard";
 const RECORD: &str = ".record";
@@ -21,7 +21,6 @@ pub struct RecordItem<'a> {
 }
 
 pub fn run(cli: args::Args) -> Result<(), Error> {
-        
     // This selects the location of deleted
     // files based on the following order (from
     // first choice to last):
@@ -47,7 +46,7 @@ pub fn run(cli: args::Args) -> Result<(), Error> {
     .into();
 
     if !graveyard.exists() {
-        if let Err(e) = fs::create_dir(&graveyard){
+        if let Err(e) = fs::create_dir(&graveyard) {
             return Err(e);
         }
         let metadata = graveyard.metadata();
@@ -194,7 +193,11 @@ pub fn run(cli: args::Args) -> Result<(), Error> {
                             println!("{}", entry.path().display());
                         }
                     } else {
-                        println!("{}: file, {}", &target.to_str().unwrap(), util::humanize_bytes(metadata.len()));
+                        println!(
+                            "{}: file, {}",
+                            &target.to_str().unwrap(),
+                            util::humanize_bytes(metadata.len())
+                        );
                         // Read the file and print the first few lines
                         if let Ok(f) = fs::File::open(source) {
                             for line in BufReader::new(f)
@@ -208,7 +211,10 @@ pub fn run(cli: args::Args) -> Result<(), Error> {
                             println!("Error reading {}", source.display());
                         }
                     }
-                    if !util::prompt_yes(format!("Send {} to the graveyard?", target.to_str().unwrap())) {
+                    if !util::prompt_yes(format!(
+                        "Send {} to the graveyard?",
+                        target.to_str().unwrap()
+                    )) {
                         continue;
                     }
                 }
@@ -259,7 +265,10 @@ pub fn run(cli: args::Args) -> Result<(), Error> {
             } else {
                 return Err(Error::new(
                     ErrorKind::NotFound,
-                    format!("Cannot remove {}: no such file or directory", target.to_str().unwrap()),
+                    format!(
+                        "Cannot remove {}: no such file or directory",
+                        target.to_str().unwrap()
+                    ),
                 ));
             }
         }

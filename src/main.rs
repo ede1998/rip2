@@ -1,7 +1,7 @@
-use rip;
-use rip::args;
 use clap::{CommandFactory, Parser, ValueEnum};
 use clap_complete::{generate, Shell};
+use rip;
+use rip::args;
 use std::io::stdout;
 use std::process::ExitCode;
 
