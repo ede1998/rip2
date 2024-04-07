@@ -558,7 +558,6 @@ mod tests {
     use std::fs::{self, metadata, read_to_string, remove_dir_all, File};
     use std::io::Write;
     use std::path::PathBuf;
-    use std::process::Command;
 
     struct TestEnv {
         tmpdir: PathBuf,
@@ -638,15 +637,14 @@ mod tests {
         assert_eq!(restored_data_from_grave, data);
 
         // Unbury the file using the CLI
-        let output = Command::new("cargo")
-            .arg("run")
-            .arg("--")
-            .arg("--graveyard")
-            .arg(&test_env.graveyard)
-            .arg("-u")
-            .output()
-            .expect("Failed to execute command");
-        assert!(output.status.success());
+        let _ = run(args::Args {
+            targets: Vec::new(),
+            graveyard: Some(test_env.graveyard.clone()),
+            decompose: false,
+            seance: false,
+            unbury: Some(Vec::new()),
+            inspect: false,
+        });
 
         // Verify that the file exists in the original location with the correct data
         assert!(metadata(&datafile_path).is_ok());
