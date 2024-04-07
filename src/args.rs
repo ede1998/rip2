@@ -16,7 +16,7 @@ pub struct Args {
     #[arg(short, long)]
     pub decompose: bool,
 
-    /// Deletes without confirmation
+    /// Deletes the graveyard without confirmation
     #[arg(short, long)]
     pub force: bool,
 
