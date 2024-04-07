@@ -86,35 +86,24 @@ fn test_bury_unbury(#[case] decompose: bool) {
     let restored_data_from_grave = read_to_string(&grave_datafile_path).unwrap();
     assert_eq!(restored_data_from_grave, data);
 
-    if decompose {
-        let _ = rip::run(args::Args {
-            targets: Vec::new(),
-            graveyard: Some(test_env.graveyard.clone()),
-            decompose: true,
-            force: true,
-            seance: false,
-            unbury: None,
-            inspect: false,
-            completions: None,
-        });
+    let _ = rip::run(args::Args {
+        targets: Vec::new(),
+        graveyard: Some(test_env.graveyard.clone()),
+        decompose,
+        // So we don't get interactions:
+        force: decompose,
+        seance: false,
+        unbury: if decompose { None } else { Some(Vec::new()) },
+        inspect: false,
+        completions: None,
+    });
 
+    if decompose {
         // Verify that the graveyard is completely deleted
         assert!(metadata(&test_env.graveyard).is_err());
         // And that the file was not restored
         assert!(metadata(&datafile_path).is_err());
     } else {
-        // Unbury the file using the CLI
-        let _ = rip::run(args::Args {
-            targets: Vec::new(),
-            graveyard: Some(test_env.graveyard.clone()),
-            decompose: false,
-            force: false,
-            seance: false,
-            unbury: Some(Vec::new()),
-            inspect: false,
-            completions: None,
-        });
-
         // Verify that the file exists in the original location with the correct data
         assert!(metadata(&datafile_path).is_ok());
         let restored_data = read_to_string(&datafile_path).unwrap();
