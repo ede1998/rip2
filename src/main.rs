@@ -30,7 +30,7 @@ fn main() -> ExitCode {
     ExitCode::SUCCESS
 }
 
-fn run(cli: args::Args) -> Result<(), Error> {
+pub fn run(cli: args::Args) -> Result<(), Error> {
         
     // This selects the location of deleted
     // files based on the following order (from
