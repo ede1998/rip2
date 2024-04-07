@@ -28,7 +28,7 @@ jobs:
         rust-version: [stable]
         include:
           - os: ubuntu-latest
-            rust-version: 1.42.0
+            rust-version: 1.60.0
 
 
     steps:
