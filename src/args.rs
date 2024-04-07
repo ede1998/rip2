@@ -29,5 +29,10 @@ pub struct Args {
     /// Print some info about TARGET before
     /// burying
     #[arg(short, long)]
-    pub inspect: bool
+    pub inspect: bool,
+
+    /// Generate shell completions file
+    /// for the specified shell
+    #[arg(long, value_name = "SHELL")]
+    pub completions: Option<String>,
 }
