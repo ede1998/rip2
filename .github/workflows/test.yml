@@ -25,10 +25,11 @@ jobs:
           - ubuntu-latest
           - macOS-latest
           - windows-latest
-        rust-version: [stable]
+        rust-version:
+          - stable
         include:
           - os: ubuntu-latest
-            rust-version: 1.60.0
+            rust-version: stable 18 months ago
 
 
     steps:
