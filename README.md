@@ -8,7 +8,7 @@ This version is a fork-of-a-fork:
 
 1. Unmaintained since 2020, Kevin Liu's original [`rip`](https://github.com/nivekuil/rip).
 2. This was forked to [@StandingPadAnimation](https://github.com/StandingPadAnimations) who added a few features.
-3. Finally, that repo was forked [here](https://github.com/MilesCranmer/rm-improved) with ongoing maintenance:
+3. Finally, that repo was forked [here](https://github.com/MilesCranmer/rip) with ongoing maintenance:
     - Added a test suite
     - Adding several unmerged PRs from the original repo
     - General maintenance
@@ -19,7 +19,7 @@ This version is a fork-of-a-fork:
 You can install this package from source with:
 
 ```bash
-$ cargo install --git https://github.com/MilesCranmer/rm-improved.git
+$ cargo install --git https://github.com/MilesCranmer/rip.git
 ```
 
 No binaries are made available at this time.
