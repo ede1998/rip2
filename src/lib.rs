@@ -1,14 +1,12 @@
-use std::io::{BufRead, BufReader, Error, ErrorKind, Write, stdout};
+use clap::CommandFactory;
+use std::{env, fs, io};
+use std::io::{BufRead, BufReader, Error, ErrorKind, Write};
 use std::os::unix::fs::{FileTypeExt, PermissionsExt};
 use std::path::{Path, PathBuf};
-use std::process::ExitCode;
-use std::{env, fs, io};
-use clap::{CommandFactory, Parser, ValueEnum};
-use clap_complete::{generate, Shell};
 use walkdir::WalkDir;
 
-mod util;
-mod args;
+pub mod util;
+pub mod args;
 
 const GRAVEYARD: &str = "/tmp/graveyard";
 const RECORD: &str = ".record";
@@ -20,25 +18,6 @@ pub struct RecordItem<'a> {
     _time: &'a str,
     orig: &'a Path,
     dest: &'a Path,
-}
-
-fn main() -> ExitCode {
-    let cli = args::Args::parse();
-
-    if let Some(shell) = cli.completions.as_deref() {
-        let shell = Shell::from_str(shell, true).unwrap_or_else(|_| {
-            eprintln!("Invalid shell specification: {}", shell);
-            std::process::exit(1);
-        });
-        generate(shell, &mut args::Args::command(), "rip", &mut stdout());
-        return ExitCode::SUCCESS;
-    }
-
-    if let Err(ref e) = run(cli) {
-        println!("Exception: {}", e);
-        return ExitCode::FAILURE;
-    }
-    ExitCode::SUCCESS
 }
 
 pub fn run(cli: args::Args) -> Result<(), Error> {

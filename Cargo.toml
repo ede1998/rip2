@@ -27,6 +27,10 @@ rand = "0.8"
 [profile.release]
 opt-level = "s"
 
+[[test]]
+name = "integration_tests"
+path = "tests/integration_tests.rs"
+
 [[bin]]
 name = "rip"
 path = "src/main.rs"

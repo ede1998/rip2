@@ -5,7 +5,8 @@ use std::fs::{self, metadata, read_to_string, remove_dir_all, File};
 use std::io::Write;
 use std::path::PathBuf;
 
-use rmimproved2;
+use rip;
+use rip::{args, util};
 
 struct TestEnv {
     tmpdir: PathBuf,
@@ -59,7 +60,7 @@ fn test_bury_unbury() {
 
     file.write(data.as_bytes()).unwrap();
 
-    let _ = run(args::Args {
+    let _ = rip::run(args::Args {
         targets: [datafile_path.clone()].to_vec(),
         graveyard: Some(test_env.graveyard.clone()),
         decompose: false,
@@ -86,7 +87,7 @@ fn test_bury_unbury() {
     assert_eq!(restored_data_from_grave, data);
 
     // Unbury the file using the CLI
-    let _ = run(args::Args {
+    let _ = rip::run(args::Args {
         targets: Vec::new(),
         graveyard: Some(test_env.graveyard.clone()),
         decompose: false,
