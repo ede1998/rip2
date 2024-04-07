@@ -14,101 +14,103 @@ struct TestEnv {
     src: PathBuf,
 }
 
-fn setup_test_env() -> TestEnv {
-    let rand_string = rand::thread_rng()
-        .sample_iter(&Alphanumeric)
-        .take(16)
-        .map(char::from)
-        .collect::<String>();
-    let tmpdir = temp_dir().join(format!("rip_test_{}", rand_string));
-    let graveyard = tmpdir.join("graveyard");
-    let src = tmpdir.join("data");
+impl TestEnv {
+    fn new() -> TestEnv {
+        let rand_string = rand::thread_rng()
+            .sample_iter(&Alphanumeric)
+            .take(16)
+            .map(char::from)
+            .collect::<String>();
+        let tmpdir = temp_dir().join(format!("rip_test_{}", rand_string));
+        let graveyard = tmpdir.join("graveyard");
+        let src = tmpdir.join("data");
 
-    // The graveyard should be created, so we don't test this:
-    //// fs::create_dir_all(&graveyard).unwrap();
-    fs::create_dir_all(&src).unwrap();
+        // The graveyard should be created, so we don't test this:
+        //// fs::create_dir_all(&graveyard).unwrap();
+        fs::create_dir_all(&src).unwrap();
 
-    TestEnv {
-        tmpdir,
-        graveyard,
-        src,
+        TestEnv {
+            tmpdir,
+            graveyard,
+            src,
+        }
+    }
+    // Rustc Opposite of new:
+    fn teardown(self) {
+        let _ = remove_dir_all(self.tmpdir);
     }
 }
-fn teardown_test_env(test_env: TestEnv) {
-    let _ = remove_dir_all(test_env.tmpdir);
+
+struct TestData {
+    data: String,
+    path: PathBuf,
 }
 
-fn make_test_data() -> String {
-    rand::thread_rng()
-        .sample_iter(&Alphanumeric)
-        .take(100)
-        .map(char::from)
-        .collect::<String>()
+impl TestData {
+    fn new(test_env: &TestEnv) -> TestData {
+        let data = rand::thread_rng()
+            .sample_iter(&Alphanumeric)
+            .take(100)
+            .map(char::from)
+            .collect::<String>();
+
+        println!("Graveyard dir: {}", test_env.graveyard.display());
+        println!("Src dir: {}", test_env.src.display());
+
+        let path = test_env.src.join("test_file.txt");
+        let mut file = File::create(&path).unwrap();
+        file.write_all(data.as_bytes()).unwrap();
+
+        TestData { data, path }
+    }
 }
 
 #[rstest]
 #[case::unbury(false)]
 #[case::decomposition(true)]
 fn test_bury_unbury(#[case] decompose: bool) {
-    let data = make_test_data();
-    let test_env = setup_test_env();
-
-    println!("Graveyard dir: {}", test_env.graveyard.display());
-    println!("Src dir: {}", test_env.src.display());
-
-    let datafile_path = test_env.src.join("test_file.txt");
-    let mut file = File::create(&datafile_path).unwrap();
-    let datafile_path_canonical = datafile_path.canonicalize().unwrap();
-
-    file.write_all(data.as_bytes()).unwrap();
+    let test_env = TestEnv::new();
+    let test_data = TestData::new(&test_env);
+    // And is now in the graveyard
+    let expected_graveyard_path =
+        util::join_absolute(&test_env.graveyard, test_data.path.canonicalize().unwrap());
 
     let _ = rip::run(args::Args {
-        targets: [datafile_path.clone()].to_vec(),
+        targets: [test_data.path.clone()].to_vec(),
         graveyard: Some(test_env.graveyard.clone()),
-        decompose: false,
-        force: false,
-        seance: false,
-        unbury: None,
-        inspect: false,
-        completions: None,
+        ..args::Args::default()
     });
 
     // Verify that the file no longer exists
-    assert!(metadata(&datafile_path).is_err());
+    assert!(metadata(&test_data.path).is_err());
     // Verify that the graveyard exists
     assert!(metadata(&test_env.graveyard).is_ok());
 
-    // And is now in the graveyard
-    let grave_datafile_path = util::join_absolute(&test_env.graveyard, datafile_path_canonical);
     // test_env.graveyard.join(&datafile_path);
-    assert!(metadata(&grave_datafile_path).is_ok());
+    assert!(metadata(&expected_graveyard_path).is_ok());
     // with the right data
-    let restored_data_from_grave = read_to_string(&grave_datafile_path).unwrap();
-    assert_eq!(restored_data_from_grave, data);
+    let restored_data_from_grave = read_to_string(&expected_graveyard_path).unwrap();
+    assert_eq!(restored_data_from_grave, test_data.data);
 
     let _ = rip::run(args::Args {
-        targets: Vec::new(),
         graveyard: Some(test_env.graveyard.clone()),
         decompose,
-        // So we don't get interactions:
         force: decompose,
-        seance: false,
         unbury: if decompose { None } else { Some(Vec::new()) },
-        inspect: false,
-        completions: None,
+        ..args::Args::default()
     });
 
     if decompose {
         // Verify that the graveyard is completely deleted
         assert!(metadata(&test_env.graveyard).is_err());
         // And that the file was not restored
-        assert!(metadata(&datafile_path).is_err());
+        assert!(metadata(&test_data.path).is_err());
     } else {
         // Verify that the file exists in the original location with the correct data
-        assert!(metadata(&datafile_path).is_ok());
-        let restored_data = read_to_string(&datafile_path).unwrap();
-        assert_eq!(restored_data, data);
+        assert!(metadata(&test_data.path).is_ok());
+        let restored_data = read_to_string(&test_data.path).unwrap();
+        assert_eq!(restored_data, test_data.data);
     }
 
-    teardown_test_env(test_env)
+    test_env.teardown();
 }

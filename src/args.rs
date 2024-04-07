@@ -2,7 +2,7 @@ use clap::Parser;
 use std::io::{Error, ErrorKind};
 use std::path::PathBuf;
 
-#[derive(Parser, Debug)]
+#[derive(Parser, Debug, Default)]
 #[command(author, version, about, long_about = None)]
 pub struct Args {
     /// File or directory to remove
@@ -53,17 +53,18 @@ struct IsDefault {
     inspect: bool,
     completions: bool,
 }
-// Make this with ::new instead the proper RustLang way:
+
 impl IsDefault {
     fn new(cli: &Args) -> IsDefault {
+        let defaults = Args::default();
         IsDefault {
-            graveyard: cli.graveyard.is_none(),
-            decompose: !cli.decompose,
-            force: !cli.force,
-            seance: !cli.seance,
-            unbury: cli.unbury.is_none(),
-            inspect: !cli.inspect,
-            completions: cli.completions.is_none(),
+            graveyard: cli.graveyard == defaults.graveyard,
+            decompose: cli.decompose == defaults.decompose,
+            force: cli.force == defaults.force,
+            seance: cli.seance == defaults.seance,
+            unbury: cli.unbury == defaults.unbury,
+            inspect: cli.inspect == defaults.inspect,
+            completions: cli.completions == defaults.completions,
         }
     }
 }
