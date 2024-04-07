@@ -2,7 +2,7 @@ use rand::distributions::Alphanumeric;
 use rand::Rng;
 use rstest::rstest;
 use std::env::temp_dir;
-use std::fs::{self, metadata, read_to_string, remove_dir_all, File};
+use std::fs::{self, File};
 use std::io::Write;
 use std::path::PathBuf;
 
@@ -37,7 +37,7 @@ impl TestEnv {
     }
     // Rustc Opposite of new:
     fn teardown(self) {
-        let _ = remove_dir_all(self.tmpdir);
+        let _ = fs::remove_dir_all(self.tmpdir);
     }
 }
 
@@ -82,14 +82,14 @@ fn test_bury_unbury(#[case] decompose: bool) {
     });
 
     // Verify that the file no longer exists
-    assert!(metadata(&test_data.path).is_err());
-    // Verify that the graveyard exists
-    assert!(metadata(&test_env.graveyard).is_ok());
+    assert!(!test_data.path.exists());
 
-    // test_env.graveyard.join(&datafile_path);
-    assert!(metadata(&expected_graveyard_path).is_ok());
+    // Verify that the graveyard exists
+    assert!(test_env.graveyard.exists());
+    assert!(expected_graveyard_path.exists());
+
     // with the right data
-    let restored_data_from_grave = read_to_string(&expected_graveyard_path).unwrap();
+    let restored_data_from_grave = fs::read_to_string(&expected_graveyard_path).unwrap();
     assert_eq!(restored_data_from_grave, test_data.data);
 
     let _ = rip::run(args::Args {
@@ -102,13 +102,13 @@ fn test_bury_unbury(#[case] decompose: bool) {
 
     if decompose {
         // Verify that the graveyard is completely deleted
-        assert!(metadata(&test_env.graveyard).is_err());
+        assert!(!test_env.graveyard.exists());
         // And that the file was not restored
-        assert!(metadata(&test_data.path).is_err());
+        assert!(!test_data.path.exists());
     } else {
         // Verify that the file exists in the original location with the correct data
-        assert!(metadata(&test_data.path).is_ok());
-        let restored_data = read_to_string(&test_data.path).unwrap();
+        assert!(test_data.path.exists());
+        let restored_data = fs::read_to_string(&test_data.path).unwrap();
         assert_eq!(restored_data, test_data.data);
     }
 
