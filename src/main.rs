@@ -546,22 +546,20 @@ fn delete_lines_from_record<R: AsRef<Path>>(
     Ok(())
 }
 
-
 //////////////////////////////////////////
 // TESTS /////////////////////////////////
 //////////////////////////////////////////
 
-
 #[cfg(test)]
 mod tests {
     use super::*;
+    use rand::distributions::Alphanumeric;
+    use rand::Rng;
     use std::env::temp_dir;
     use std::fs::{self, metadata, read_to_string, remove_dir_all, File};
     use std::io::Write;
     use std::path::PathBuf;
     use std::process::Command;
-    use rand::distributions::Alphanumeric;
-    use rand::Rng;
 
     struct TestEnv {
         tmpdir: PathBuf,
@@ -583,7 +581,11 @@ mod tests {
         //// fs::create_dir_all(&graveyard).unwrap();
         fs::create_dir_all(&src).unwrap();
 
-        TestEnv { tmpdir, graveyard, src }
+        TestEnv {
+            tmpdir,
+            graveyard,
+            src,
+        }
     }
     fn teardown_test_env(test_env: TestEnv) {
         let _ = remove_dir_all(test_env.tmpdir);
@@ -610,16 +612,14 @@ mod tests {
 
         file.write(data.as_bytes()).unwrap();
 
-        let _ = run(
-            args::Args {
-                targets: [datafile_path.clone()].to_vec(),
-                graveyard: Some(test_env.graveyard.clone()),
-                decompose: false,
-                seance: false,
-                unbury: Option::None,
-                inspect: false,
-            }
-        );
+        let _ = run(args::Args {
+            targets: [datafile_path.clone()].to_vec(),
+            graveyard: Some(test_env.graveyard.clone()),
+            decompose: false,
+            seance: false,
+            unbury: Option::None,
+            inspect: false,
+        });
 
         // Verify that the file no longer exists
         assert!(!metadata(&datafile_path).is_ok());
@@ -654,4 +654,3 @@ mod tests {
         // teardown_test_env(test_env)
     }
 }
-
