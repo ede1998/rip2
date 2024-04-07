@@ -20,6 +20,9 @@ walkdir = "1"
 time = "0.1"
 error-chain = "0.12"
 
+[dev-dependencies]
+rand = "0.8"
+
 [profile.release]
 opt-level = "s"
 
