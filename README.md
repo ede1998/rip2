@@ -2,17 +2,17 @@
 
 `rip` is a command-line deletion tool focused on safety, ergonomics, and performance.  It favors a simple interface, and does *not* implement the xdg-trash spec or attempt to achieve the same goals.
 
-> This version is a fork:
->
-> 1. Kevin Liu's original `rip`, which has been left untouched since 2020.
-> 2. ⇒ [@StandingPadAnimation](https://github.com/StandingPadAnimations) fork which adds a few features.
->
-> I'm doing a fork of this fork, half to learn rust, and half to implement customizations.
-> I also like to understand software I use, especially when that software is not actively developed.
+Deleted files get sent to the graveyard (`/tmp/graveyard-$USER` by default, see [notes](#notes) on changing this) under their absolute path, giving you a chance to recover them. No data is overwritten. If files that share the same path are deleted, they will be renamed as numbered backups.
 
-Deleted files get sent to the graveyard (`/tmp/graveyard-$USER` by default, see [notes](#notes) on changing this) under their absolute path, giving you a chance to recover them.  No data is overwritten.  If files that share the same path are deleted, they will be renamed as numbered backups.
+This version is a fork-of-a-fork:
 
-`rip` is made for lazy people.  If any part of the interface could be more intuitive, please open an issue or pull request.
+1. Unmaintained since 2020, Kevin Liu's original [`rip`](https://github.com/nivekuil/rip).
+2. This was forked to [@StandingPadAnimation](https://github.com/StandingPadAnimations) who added a few features.
+3. Finally, that repo was forked [here](https://github.com/MilesCranmer/rm-improved) with ongoing maintenance:
+    - Added a test suite
+    - Adding several unmerged PRs from the original repo
+    - General maintenance
+    - etc.
 
 ## Installation
 
@@ -54,7 +54,7 @@ $ rip dir1/ file1
 Undo the last deletion
 
 ```bash
-$ rip-u
+$ rip -u
 Returned /tmp/graveyard-jack/home/jack/file1 to /home/jack/file1
 ```
 
@@ -100,14 +100,6 @@ Combine -u and -s to restore everything printed by -s
 $ rip -su
 Returned /tmp/graveyard-jack/home/jack/dir1 to /home/jack/dir1
 Returned /tmp/graveyard-jack/home/jack/file1~1 to /home/jack/file1~1
-```
-
-### Emacs
-
-```elisp
-(setq delete-by-moving-to-trash t)
-(defun system-move-file-to-trash (filename)
-  (shell-command (concat (executable-find "rip") " " filename)))
 ```
 
 ## Notes
