@@ -1,4 +1,5 @@
 use clap::CommandFactory;
+use std::fs::Metadata;
 use std::io::{BufRead, BufReader, Error, ErrorKind, Write};
 use std::os::unix::fs::{FileTypeExt, PermissionsExt};
 use std::path::{Path, PathBuf};
@@ -167,54 +168,8 @@ pub fn run(cli: args::Args) -> Result<(), Error> {
                 };
 
                 if cli.inspect {
-                    if metadata.is_dir() {
-                        // Get the size of the directory and all its contents
-                        println!(
-                            "{}: directory, {} including:",
-                            target.to_str().unwrap(),
-                            util::humanize_bytes(
-                                WalkDir::new(source)
-                                    .into_iter()
-                                    .filter_map(|x| x.ok())
-                                    .filter_map(|x| x.metadata().ok())
-                                    .map(|x| x.len())
-                                    .sum::<u64>()
-                            )
-                        );
-
-                        // Print the first few top-level files in the directory
-                        for entry in WalkDir::new(source)
-                            .min_depth(1)
-                            .max_depth(1)
-                            .into_iter()
-                            .filter_map(|entry| entry.ok())
-                            .take(FILES_TO_INSPECT)
-                        {
-                            println!("{}", entry.path().display());
-                        }
-                    } else {
-                        println!(
-                            "{}: file, {}",
-                            &target.to_str().unwrap(),
-                            util::humanize_bytes(metadata.len())
-                        );
-                        // Read the file and print the first few lines
-                        if let Ok(f) = fs::File::open(source) {
-                            for line in BufReader::new(f)
-                                .lines()
-                                .take(LINES_TO_INSPECT)
-                                .filter_map(|line| line.ok())
-                            {
-                                println!("> {}", line);
-                            }
-                        } else {
-                            println!("Error reading {}", source.display());
-                        }
-                    }
-                    if !util::prompt_yes(format!(
-                        "Send {} to the graveyard?",
-                        target.to_str().unwrap()
-                    )) {
+                    let moved_to_graveyard = do_inspection(target, source, metadata);
+                    if moved_to_graveyard {
                         continue;
                     }
                 }
@@ -277,6 +232,60 @@ pub fn run(cli: args::Args) -> Result<(), Error> {
     }
 
     Ok(())
+}
+
+fn do_inspection(target: PathBuf, source: &PathBuf, metadata: Metadata) -> bool {
+    if metadata.is_dir() {
+        // Get the size of the directory and all its contents
+        println!(
+            "{}: directory, {} including:",
+            target.to_str().unwrap(),
+            util::humanize_bytes(
+                WalkDir::new(source)
+                    .into_iter()
+                    .filter_map(|x| x.ok())
+                    .filter_map(|x| x.metadata().ok())
+                    .map(|x| x.len())
+                    .sum::<u64>()
+            )
+        );
+
+        // Print the first few top-level files in the directory
+        for entry in WalkDir::new(source)
+            .min_depth(1)
+            .max_depth(1)
+            .into_iter()
+            .filter_map(|entry| entry.ok())
+            .take(FILES_TO_INSPECT)
+        {
+            println!("{}", entry.path().display());
+        }
+    } else {
+        println!(
+            "{}: file, {}",
+            &target.to_str().unwrap(),
+            util::humanize_bytes(metadata.len())
+        );
+        // Read the file and print the first few lines
+        if let Ok(f) = fs::File::open(source) {
+            for line in BufReader::new(f)
+                .lines()
+                .take(LINES_TO_INSPECT)
+                .filter_map(|line| line.ok())
+            {
+                println!("> {}", line);
+            }
+        } else {
+            println!("Error reading {}", source.display());
+        }
+    }
+    if !util::prompt_yes(format!(
+        "Send {} to the graveyard?",
+        target.to_str().unwrap()
+    )) {
+        return true;
+    }
+    return false;
 }
 
 /// Write deletion history to record
