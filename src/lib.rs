@@ -56,9 +56,7 @@ pub fn run(cli: args::Args) -> Result<(), Error> {
     // If the user wishes to restore everything
     if cli.decompose {
         if cli.force || util::prompt_yes("Really unlink the entire graveyard?") {
-            if let Err(e) = fs::remove_dir_all(graveyard) {
-                return Err(Error::new(e.kind(), "Couldn't unlink graveyard"));
-            }
+            fs::remove_dir_all(graveyard)?;
         }
         return Ok(());
     }
@@ -121,14 +119,14 @@ pub fn run(cli: args::Args) -> Result<(), Error> {
         }
 
         // Reopen the record and then delete lines corresponding to exhumed graves
-        if let Err(e) = fs::File::open(record)
+        fs::File::open(record)
             .and_then(|f| delete_lines_from_record(f, record, &graves_to_exhume))
-        {
-            return Err(Error::new(
-                e.kind(),
-                format!("Failed to remove unburied files from record: {}", e),
-            ));
-        }
+            .map_err(|e| {
+                Error::new(
+                    e.kind(),
+                    format!("Failed to remove unburied files from record: {}", e),
+                )
+            })?;
         return Ok(());
     }
 
