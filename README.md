@@ -11,7 +11,7 @@ This version is a fork-of-a-fork:
 3. Finally, that repo was forked [here](https://github.com/MilesCranmer/rip) with ongoing maintenance:
     - Added a test suite
     - Adding several unmerged PRs from the original repo
-    - General maintenance
+    - General maintenance/refactoring/optimization
     - etc.
 
 ## Installation
