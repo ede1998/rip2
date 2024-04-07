@@ -42,6 +42,8 @@ pub struct Args {
     pub completions: Option<String>,
 }
 
+// TODO: Replace `force` with a general non-interactive flag
+
 struct IsDefault {
     graveyard: bool,
     decompose: bool,
