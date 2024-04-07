@@ -1,6 +1,6 @@
-# rip (Rm ImProved)
+# rip (improved `rm`)
 
-`rip` is a command-line deletion tool focused on safety, ergonomics, and performance.  It favors a simple interface, and does *not* implement the xdg-trash spec or attempt to achieve the same goals.
+`rip` is a command-line rust-based `rm` with a focus on safety, ergonomics, and performance.  It favors a simple interface, and does *not* implement the xdg-trash spec or attempt to achieve the same goals.
 
 Deleted files get sent to the graveyard (`/tmp/graveyard-$USER` by default, see [notes](#notes) on changing this) under their absolute path, giving you a chance to recover them. No data is overwritten. If files that share the same path are deleted, they will be renamed as numbered backups.
 
