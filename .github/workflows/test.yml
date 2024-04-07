@@ -26,9 +26,6 @@ jobs:
           - macOS-latest
         rust-version:
           - stable
-        include:
-          - os: ubuntu-latest
-            rust-version: stable 18 months ago
 
 
     steps:
