@@ -22,7 +22,7 @@ pub struct RecordItem<'a> {
 }
 
 pub fn run(cli: args::Args) -> Result<(), Error> {
-    args::validate_args(&cli).unwrap();
+    args::validate_args(&cli)?;
     // This selects the location of deleted
     // files based on the following order (from
     // first choice to last):
