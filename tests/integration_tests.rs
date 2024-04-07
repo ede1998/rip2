@@ -6,7 +6,6 @@ use std::fs::{self, metadata, read_to_string, remove_dir_all, File};
 use std::io::Write;
 use std::path::PathBuf;
 
-use rip;
 use rip::{args, util};
 
 struct TestEnv {
@@ -40,11 +39,11 @@ fn teardown_test_env(test_env: TestEnv) {
 }
 
 fn make_test_data() -> String {
-    return rand::thread_rng()
+    rand::thread_rng()
         .sample_iter(&Alphanumeric)
         .take(100)
         .map(char::from)
-        .collect::<String>();
+        .collect::<String>()
 }
 
 #[rstest]
@@ -61,7 +60,7 @@ fn test_bury_unbury(#[case] decompose: bool) {
     let mut file = File::create(&datafile_path).unwrap();
     let datafile_path_canonical = datafile_path.canonicalize().unwrap();
 
-    file.write(data.as_bytes()).unwrap();
+    file.write_all(data.as_bytes()).unwrap();
 
     let _ = rip::run(args::Args {
         targets: [datafile_path.clone()].to_vec(),

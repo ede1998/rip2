@@ -66,40 +66,36 @@ impl IsDefault {
     }
 }
 
+#[allow(clippy::nonminimal_bool)]
 pub fn validate_args(cli: &Args) -> Result<(), Error> {
     let defaults = IsDefault::new(cli);
 
     // [completions] can only be used by itself
-    if !defaults.completions {
-        if !(defaults.graveyard
+    if !defaults.completions
+        && !(defaults.graveyard
             && defaults.decompose
             && defaults.force
             && defaults.seance
             && defaults.unbury
             && defaults.inspect)
-        {
-            return Err(Error::new(
-                ErrorKind::InvalidInput,
-                "--completions can only be used by itself",
-            ));
-        }
+    {
+        return Err(Error::new(
+            ErrorKind::InvalidInput,
+            "--completions can only be used by itself",
+        ));
     }
     // Furthermore, [force] and [decompose] only work with eachother
-    if !defaults.force {
-        if !(defaults.seance && defaults.unbury && defaults.inspect) {
-            return Err(Error::new(
-                ErrorKind::InvalidInput,
-                "-f,--force can only be used with -d,--decompose and --graveyard",
-            ));
-        }
+    if !defaults.force && !(defaults.seance && defaults.unbury && defaults.inspect) {
+        return Err(Error::new(
+            ErrorKind::InvalidInput,
+            "-f,--force can only be used with -d,--decompose and --graveyard",
+        ));
     }
-    if !defaults.decompose {
-        if !(defaults.seance && defaults.unbury && defaults.inspect) {
-            return Err(Error::new(
-                ErrorKind::InvalidInput,
-                "-d,--decompose can only be used with -f,--force and --graveyard",
-            ));
-        }
+    if !defaults.decompose && !(defaults.seance && defaults.unbury && defaults.inspect) {
+        return Err(Error::new(
+            ErrorKind::InvalidInput,
+            "-d,--decompose can only be used with -f,--force and --graveyard",
+        ));
     }
 
     Ok(())
