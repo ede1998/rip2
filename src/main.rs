@@ -1,9 +1,10 @@
-use std::io::{BufRead, BufReader, Error, ErrorKind, Write};
+use std::io::{BufRead, BufReader, Error, ErrorKind, Write, stdout};
 use std::os::unix::fs::{FileTypeExt, PermissionsExt};
 use std::path::{Path, PathBuf};
 use std::process::ExitCode;
 use std::{env, fs, io};
-use clap::{CommandFactory, Parser};
+use clap::{CommandFactory, Parser, ValueEnum};
+use clap_complete::{generate, Shell};
 use walkdir::WalkDir;
 
 mod util;
@@ -23,6 +24,16 @@ struct RecordItem<'a> {
 
 fn main() -> ExitCode {
     let cli = args::Args::parse();
+
+    if let Some(shell) = cli.completions.as_deref() {
+        let shell = Shell::from_str(shell, true).unwrap_or_else(|_| {
+            eprintln!("Invalid shell specification: {}", shell);
+            std::process::exit(1);
+        });
+        generate(shell, &mut args::Args::command(), "rip", &mut stdout());
+        return ExitCode::SUCCESS;
+    }
+
     if let Err(ref e) = run(cli) {
         println!("Exception: {}", e);
         return ExitCode::FAILURE;
@@ -616,8 +627,9 @@ mod tests {
             graveyard: Some(test_env.graveyard.clone()),
             decompose: false,
             seance: false,
-            unbury: Option::None,
+            unbury: None,
             inspect: false,
+            completions: None,
         });
 
         // Verify that the file no longer exists
@@ -644,6 +656,7 @@ mod tests {
             seance: false,
             unbury: Some(Vec::new()),
             inspect: false,
+            completions: None,
         });
 
         // Verify that the file exists in the original location with the correct data
