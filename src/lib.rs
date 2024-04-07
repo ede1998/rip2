@@ -60,7 +60,7 @@ pub fn run(cli: args::Args) -> Result<(), Error> {
 
     // If the user wishes to restore everything
     if cli.decompose {
-        if util::prompt_yes("Really unlink the entire graveyard?") {
+        if cli.force || util::prompt_yes("Really unlink the entire graveyard?") {
             if let Err(e) = fs::remove_dir_all(graveyard) {
                 return Err(Error::new(e.kind(), "Couldn't unlink graveyard"));
             }

@@ -15,6 +15,10 @@ pub struct Args {
     #[arg(short, long)]
     pub decompose: bool,
 
+    /// Forcefully deletes without confirmation
+    #[arg(short, long)]
+    pub force: bool,
+
     /// Prints files that were deleted
     /// in the current working directory
     #[arg(short, long)]
