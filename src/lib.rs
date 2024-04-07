@@ -192,9 +192,9 @@ pub fn run(cli: args::Args) -> Result<(), Error> {
                 };
 
                 {
-                    let res = bury(source, dest).or_else(|e| {
+                    let res = bury(source, dest).map_err(|e| {
                         fs::remove_dir_all(dest).ok();
-                        Err(e)
+                        e
                     });
                     if let Err(e) = res {
                         return Err(Error::new(e.kind(), "Failed to bury file"));
@@ -401,10 +401,7 @@ fn copy_file<S: AsRef<Path>, D: AsRef<Path>>(source: S, dest: D) -> Result<(), E
     }
 
     if filetype.is_file() {
-        if let Err(e) = fs::copy(source, dest) {
-            // println!("Failed to copy {} to {}", source.display(), dest.display());
-            return Err(e);
-        }
+        fs::copy(source, dest)?;
     } else if filetype.is_fifo() {
         let mode = metadata.permissions().mode();
         std::process::Command::new("mkfifo")
@@ -478,7 +475,7 @@ fn record_entry(line: &str) -> RecordItem {
 }
 
 /// Takes a vector of grave paths and returns the respective lines in the record
-fn lines_of_graves<'a>(f: fs::File, graves: &'a [PathBuf]) -> impl Iterator<Item = String> + 'a {
+fn lines_of_graves(f: fs::File, graves: &[PathBuf]) -> impl Iterator<Item = String> + '_ {
     BufReader::new(f)
         .lines()
         .map_while(Result::ok)
