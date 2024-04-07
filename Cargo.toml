@@ -1,6 +1,6 @@
 [package]
 edition = '2021'
-name = "rm-improved-2"
+name = "rip"
 version = "0.1.0"
 authors = ["mail@nivekuil.com", "mahid@standingpad.org", "miles.cranmer@gmail.com"]
 description = "rip: a safe and ergonomic alternative to rm"
