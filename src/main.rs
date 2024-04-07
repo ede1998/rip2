@@ -305,7 +305,6 @@ where
 
 pub fn bury<S: AsRef<Path>, D: AsRef<Path>>(source: S, dest: D) -> Result<(), Error> {
     let (source, dest) = (source.as_ref(), dest.as_ref());
-    println!("Burying to path {}", dest.display());
     // Try a simple rename, which will only work within the same mount point.
     // Trying to rename across filesystems will throw errno 18.
     if fs::rename(source, dest).is_ok() {
@@ -609,6 +608,7 @@ mod tests {
 
         let datafile_path = test_env.src.join("test_file.txt");
         let mut file = File::create(&datafile_path).unwrap();
+        let datafile_path_canonical = datafile_path.canonicalize().unwrap();
 
         file.write(data.as_bytes()).unwrap();
 
@@ -627,12 +627,14 @@ mod tests {
         assert!(metadata(&test_env.graveyard).is_ok());
 
         // And is now in the graveyard
-        let grave_datafile_path = util::join_absolute(&test_env.graveyard, &datafile_path);
+        let grave_datafile_path = util::join_absolute(
+            &test_env.graveyard,
+            &datafile_path_canonical
+        );
         // test_env.graveyard.join(&datafile_path);
-        println!("Checking graveyard at {}", grave_datafile_path.display());
         assert!(metadata(&grave_datafile_path).is_ok());
         // with the right data
-        let restored_data_from_grave = read_to_string(&datafile_path).unwrap();
+        let restored_data_from_grave = read_to_string(&grave_datafile_path).unwrap();
         assert_eq!(restored_data_from_grave, data);
 
         // Unbury the file using the CLI
@@ -651,6 +653,6 @@ mod tests {
         let restored_data = read_to_string(&datafile_path).unwrap();
         assert_eq!(restored_data, data);
 
-        // teardown_test_env(test_env)
+        teardown_test_env(test_env)
     }
 }
