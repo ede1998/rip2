@@ -1,6 +1,6 @@
 use rand::distributions::Alphanumeric;
 use rand::Rng;
-use rip::Args;
+use rip::args::Args;
 use rip::{self, util};
 use rstest::rstest;
 use std::env;
@@ -77,8 +77,8 @@ impl TestData {
 /// Test that a file is buried and unburied correctly
 /// Also checks that the graveyard is deleted when decompose is true
 #[rstest]
-#[case::unbury(false, false)]
-#[case::unbury_with_inspect(false, true)]
+#[case(false, false)]
+#[case::with_inspect(false, true)]
 #[case::decomposition(true, false)]
 fn test_bury_unbury(#[case] decompose: bool, #[case] inspect: bool) {
     let _env_lock = aquire_lock();
@@ -164,8 +164,8 @@ fn restore_env_vars(default_env_vars: [Option<String>; 2]) {
 
 /// Test that we can set the graveyard from different env variables
 #[rstest]
-#[case::env_graveyard("GRAVEYARD")]
-#[case::env_xdg_data_home("XDG_DATA_HOME")]
+#[case::graveyard("GRAVEYARD")]
+#[case::xdg_data_home("XDG_DATA_HOME")]
 fn test_env(#[case] env_var: &str) {
     let _env_lock = aquire_lock();
 
@@ -204,19 +204,31 @@ fn test_env(#[case] env_var: &str) {
 }
 
 #[rstest]
-fn test_duplicate_file() {
+#[case(false)]
+#[case::within_folder(true)]
+fn test_duplicate_file(#[case] in_folder: bool) {
     let _env_lock = aquire_lock();
 
     let test_env = TestEnv::new();
 
     // Bury the first file
-    let test_data1 = TestData::new(&test_env, Some("file.txt"));
+    let test_data1 = if in_folder {
+        fs::create_dir(test_env.src.join("dir")).unwrap();
+        TestData::new(&test_env, Some("dir/file.txt"))
+    } else {
+        TestData::new(&test_env, Some("file.txt"))
+    };
     let expected_graveyard_path1 =
         util::join_absolute(&test_env.graveyard, test_data1.path.canonicalize().unwrap());
 
     rip::run(
         Args {
-            targets: [test_data1.path.clone()].to_vec(),
+            targets: [if in_folder {
+                test_data1.path.parent().unwrap().to_path_buf()
+            } else {
+                test_data1.path.clone()
+            }]
+            .to_vec(),
             graveyard: Some(test_env.graveyard.clone()),
             ..Args::default()
         },
@@ -227,18 +239,39 @@ fn test_duplicate_file() {
     assert!(expected_graveyard_path1.exists());
 
     // Bury the second file
-    let test_data2 = TestData::new(&test_env, Some("file.txt"));
+    let test_data2 = if in_folder {
+        // TODO: Why do we need to create the whole dir?
+        fs::create_dir_all(test_env.src.join("dir")).unwrap();
+        TestData::new(&test_env, Some("dir/file.txt"))
+    } else {
+        TestData::new(&test_env, Some("file.txt"))
+    };
+
+    let path_within_graveyard = (if in_folder {
+        test_data2.path.parent().unwrap().to_path_buf()
+    } else {
+        test_data2.path.clone()
+    })
+    .canonicalize()
+    .unwrap();
+
     let expected_graveyard_path2 = util::join_absolute(
         &test_env.graveyard,
-        PathBuf::from(format!(
-            "{}~1",
-            test_data2.path.canonicalize().unwrap().to_str().unwrap()
-        )),
+        PathBuf::from(if in_folder {
+            format!("{}~1/file.txt", path_within_graveyard.to_str().unwrap())
+        } else {
+            format!("{}~1", path_within_graveyard.to_str().unwrap())
+        }),
     );
 
     rip::run(
         Args {
-            targets: [test_data2.path.clone()].to_vec(),
+            targets: [if in_folder {
+                test_data2.path.parent().unwrap().to_path_buf()
+            } else {
+                test_data2.path.clone()
+            }]
+            .to_vec(),
             graveyard: Some(test_env.graveyard.clone()),
             ..Args::default()
         },
