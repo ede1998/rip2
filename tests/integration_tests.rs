@@ -89,6 +89,8 @@ fn test_bury_unbury(#[case] decompose: bool, #[case] inspect: bool) {
     let expected_graveyard_path =
         util::join_absolute(&test_env.graveyard, test_data.path.canonicalize().unwrap());
 
+    let log = Vec::new();
+
     rip2::run(
         Args {
             targets: [test_data.path.clone()].to_vec(),
@@ -97,6 +99,7 @@ fn test_bury_unbury(#[case] decompose: bool, #[case] inspect: bool) {
             ..Args::default()
         },
         TestMode,
+        log,
     )
     .unwrap();
     // TODO: Test that `inspect` is working correctly
@@ -112,6 +115,7 @@ fn test_bury_unbury(#[case] decompose: bool, #[case] inspect: bool) {
     let restored_data_from_grave = fs::read_to_string(&expected_graveyard_path).unwrap();
     assert_eq!(restored_data_from_grave, test_data.data);
 
+    let log = Vec::new();
     rip2::run(
         Args {
             graveyard: Some(test_env.graveyard.clone()),
@@ -120,6 +124,7 @@ fn test_bury_unbury(#[case] decompose: bool, #[case] inspect: bool) {
             ..Args::default()
         },
         TestMode,
+        log,
     )
     .unwrap();
 
@@ -185,6 +190,7 @@ fn test_env(#[case] env_var: &str) {
     let graveyard = test_env.graveyard.clone();
     env::set_var(env_var, graveyard);
 
+    let log = Vec::new();
     rip2::run(
         Args {
             targets: [test_data.path.clone()].to_vec(),
@@ -192,6 +198,7 @@ fn test_env(#[case] env_var: &str) {
             ..Args::default()
         },
         TestMode,
+        log,
     )
     .unwrap();
 
@@ -222,6 +229,7 @@ fn test_duplicate_file(#[case] in_folder: bool) {
     let expected_graveyard_path1 =
         util::join_absolute(&test_env.graveyard, test_data1.path.canonicalize().unwrap());
 
+    let log = Vec::new();
     rip2::run(
         Args {
             targets: [if in_folder {
@@ -234,6 +242,7 @@ fn test_duplicate_file(#[case] in_folder: bool) {
             ..Args::default()
         },
         TestMode,
+        log,
     )
     .unwrap();
 
@@ -265,6 +274,8 @@ fn test_duplicate_file(#[case] in_folder: bool) {
         }),
     );
 
+    let log = Vec::new();
+
     rip2::run(
         Args {
             targets: [if in_folder {
@@ -277,6 +288,7 @@ fn test_duplicate_file(#[case] in_folder: bool) {
             ..Args::default()
         },
         TestMode,
+        log,
     )
     .unwrap();
 
@@ -286,6 +298,7 @@ fn test_duplicate_file(#[case] in_folder: bool) {
     // Navigate to the test_env.src directory
     let cur_dir = env::current_dir().unwrap();
     env::set_current_dir(&test_env.src).unwrap();
+    let log = Vec::new();
     // Unbury using seance
     rip2::run(
         Args {
@@ -295,6 +308,7 @@ fn test_duplicate_file(#[case] in_folder: bool) {
             ..Args::default()
         },
         TestMode,
+        log,
     )
     .unwrap();
 
@@ -326,6 +340,7 @@ fn test_big_file() {
     let expected_graveyard_path =
         util::join_absolute(&test_env.graveyard, big_file_path.canonicalize().unwrap());
 
+    let log = Vec::new();
     rip2::run(
         Args {
             targets: [test_env.src.join("big_file.txt")].to_vec(),
@@ -333,6 +348,7 @@ fn test_big_file() {
             ..Args::default()
         },
         TestMode,
+        log,
     )
     .unwrap();
 

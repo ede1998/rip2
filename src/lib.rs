@@ -24,7 +24,7 @@ pub struct RecordItem<'a> {
     dest: &'a Path,
 }
 
-pub fn run<M: util::TestingMode>(cli: Args, mode: M) -> Result<(), Error> {
+pub fn run(cli: Args, mode: impl util::TestingMode, mut stream: impl Write) -> Result<(), Error> {
     args::validate_args(&cli)?;
     // This selects the location of deleted
     // files based on the following order (from
@@ -105,7 +105,7 @@ pub fn run<M: util::TestingMode>(cli: Args, mode: M) -> Result<(), Error> {
                 false => PathBuf::from(entry.orig),
             };
 
-            bury(entry.dest, &orig, &mode).map_err(|e| {
+            bury(entry.dest, &orig, &mode, &mut stream).map_err(|e| {
                 Error::new(
                     e.kind(),
                     format!(
@@ -115,7 +115,12 @@ pub fn run<M: util::TestingMode>(cli: Args, mode: M) -> Result<(), Error> {
                     ),
                 )
             })?;
-            println!("Returned {} to {}", entry.dest.display(), orig.display());
+            writeln!(
+                stream,
+                "Returned {} to {}",
+                entry.dest.display(),
+                orig.display()
+            )?;
         }
 
         // Reopen the record and then delete lines corresponding to exhumed graves
@@ -135,7 +140,7 @@ pub fn run<M: util::TestingMode>(cli: Args, mode: M) -> Result<(), Error> {
         let f = fs::File::open(record)
             .map_err(|_| Error::new(ErrorKind::NotFound, "Failed to read record!"))?;
         for grave in seance(f, gravepath.to_string_lossy()) {
-            println!("{}", grave.display());
+            writeln!(stream, "{}", grave.display())?;
         }
         return Ok(());
     }
@@ -154,7 +159,8 @@ pub fn run<M: util::TestingMode>(cli: Args, mode: M) -> Result<(), Error> {
                 };
 
                 if cli.inspect {
-                    let moved_to_graveyard = do_inspection(target, source, metadata, &mode);
+                    let moved_to_graveyard =
+                        do_inspection(target, source, metadata, &mode, &mut stream)?;
                     if moved_to_graveyard {
                         continue;
                     }
@@ -163,7 +169,7 @@ pub fn run<M: util::TestingMode>(cli: Args, mode: M) -> Result<(), Error> {
                 // If rip is called on a file already in the graveyard, prompt
                 // to permanently delete it instead.
                 if source.starts_with(&graveyard) {
-                    println!("{} is already in the graveyard.", source.display());
+                    writeln!(stream, "{} is already in the graveyard.", source.display())?;
                     if util::prompt_yes("Permanently unlink it?", &mode) {
                         if fs::remove_dir_all(source).is_err() {
                             if let Err(e) = fs::remove_file(source) {
@@ -172,7 +178,7 @@ pub fn run<M: util::TestingMode>(cli: Args, mode: M) -> Result<(), Error> {
                         }
                         continue;
                     } else {
-                        println!("Skipping {}", source.display());
+                        writeln!(stream, "Skipping {}", source.display())?;
                         return Ok(());
                     }
                 }
@@ -188,7 +194,7 @@ pub fn run<M: util::TestingMode>(cli: Args, mode: M) -> Result<(), Error> {
                 };
 
                 {
-                    let res = bury(source, dest, &mode).map_err(|e| {
+                    let res = bury(source, dest, &mode, &mut stream).map_err(|e| {
                         fs::remove_dir_all(dest).ok();
                         e
                     });
@@ -220,15 +226,17 @@ pub fn run<M: util::TestingMode>(cli: Args, mode: M) -> Result<(), Error> {
     Ok(())
 }
 
-fn do_inspection<M: util::TestingMode>(
+fn do_inspection(
     target: PathBuf,
     source: &PathBuf,
     metadata: Metadata,
-    mode: &M,
-) -> bool {
+    mode: &impl util::TestingMode,
+    stream: &mut impl Write,
+) -> Result<bool, Error> {
     if metadata.is_dir() {
         // Get the size of the directory and all its contents
-        println!(
+        writeln!(
+            stream,
             "{}: directory, {} including:",
             target.to_str().unwrap(),
             util::humanize_bytes(
@@ -239,7 +247,7 @@ fn do_inspection<M: util::TestingMode>(
                     .map(|x| x.len())
                     .sum::<u64>()
             )
-        );
+        )?;
 
         // Print the first few top-level files in the directory
         for entry in WalkDir::new(source)
@@ -249,14 +257,15 @@ fn do_inspection<M: util::TestingMode>(
             .filter_map(|entry| entry.ok())
             .take(FILES_TO_INSPECT)
         {
-            println!("{}", entry.path().display());
+            writeln!(stream, "{}", entry.path().display())?;
         }
     } else {
-        println!(
+        writeln!(
+            stream,
             "{}: file, {}",
             &target.to_str().unwrap(),
             util::humanize_bytes(metadata.len())
-        );
+        )?;
         // Read the file and print the first few lines
         if let Ok(f) = fs::File::open(source) {
             for line in BufReader::new(f)
@@ -264,25 +273,24 @@ fn do_inspection<M: util::TestingMode>(
                 .take(LINES_TO_INSPECT)
                 .filter_map(|line| line.ok())
             {
-                println!("> {}", line);
+                writeln!(stream, "> {}", line)?;
             }
         } else {
-            println!("Error reading {}", source.display());
+            writeln!(stream, "Error reading {}", source.display())?;
         }
     }
-    !util::prompt_yes(
+    Ok(!util::prompt_yes(
         format!("Send {} to the graveyard?", target.to_str().unwrap()),
         mode,
-    )
+    ))
 }
 
 /// Write deletion history to record
-fn write_log<S, D, R>(source: S, dest: D, record: R) -> io::Result<()>
-where
-    S: AsRef<Path>,
-    D: AsRef<Path>,
-    R: AsRef<Path>,
-{
+fn write_log(
+    source: impl AsRef<Path>,
+    dest: impl AsRef<Path>,
+    record: impl AsRef<Path>,
+) -> io::Result<()> {
     let (source, dest) = (source.as_ref(), dest.as_ref());
     let mut f = fs::OpenOptions::new()
         .create(true)
@@ -299,12 +307,12 @@ where
     Ok(())
 }
 
-pub fn bury<S, D, M>(source: S, dest: D, mode: &M) -> Result<(), Error>
-where
-    S: AsRef<Path>,
-    D: AsRef<Path>,
-    M: util::TestingMode,
-{
+pub fn bury(
+    source: impl AsRef<Path>,
+    dest: impl AsRef<Path>,
+    mode: &impl util::TestingMode,
+    stream: &mut impl Write,
+) -> Result<(), Error> {
     let (source, dest) = (source.as_ref(), dest.as_ref());
     // Try a simple rename, which will only work within the same mount point.
     // Trying to rename across filesystems will throw errno 18.
@@ -345,7 +353,7 @@ where
                     )
                 })?;
             } else {
-                copy_file(entry.path(), dest.join(orphan), mode).map_err(|e| {
+                copy_file(entry.path(), dest.join(orphan), mode, stream).map_err(|e| {
                     Error::new(
                         e.kind(),
                         format!(
@@ -364,7 +372,7 @@ where
             )
         })?;
     } else {
-        copy_file(source, dest, mode).map_err(|e| {
+        copy_file(source, dest, mode, stream).map_err(|e| {
             Error::new(
                 e.kind(),
                 format!(
@@ -385,22 +393,23 @@ where
     Ok(())
 }
 
-fn copy_file<S, D, M>(source: S, dest: D, mode: &M) -> Result<(), Error>
-where
-    S: AsRef<Path>,
-    D: AsRef<Path>,
-    M: util::TestingMode,
-{
+fn copy_file(
+    source: impl AsRef<Path>,
+    dest: impl AsRef<Path>,
+    mode: &impl util::TestingMode,
+    stream: &mut impl Write,
+) -> Result<(), Error> {
     let (source, dest) = (source.as_ref(), dest.as_ref());
     let metadata = fs::symlink_metadata(source)?;
     let filetype = metadata.file_type();
 
     if metadata.len() > BIG_FILE_THRESHOLD {
-        println!(
+        writeln!(
+            stream,
             "About to copy a big file ({} is {})",
             source.display(),
             util::humanize_bytes(metadata.len())
-        );
+        )?;
         if util::prompt_yes("Permanently delete this file instead?", mode) {
             return Ok(());
         }
@@ -419,7 +428,11 @@ where
         std::os::unix::fs::symlink(target, dest)?;
     } else if let Err(e) = fs::copy(source, dest) {
         // Special file: Try copying it as normal, but this probably won't work
-        println!("Non-regular file or directory: {}", source.display());
+        writeln!(
+            stream,
+            "Non-regular file or directory: {}",
+            source.display()
+        )?;
         if !util::prompt_yes("Permanently delete the file?", mode) {
             return Err(e);
         }
@@ -437,7 +450,7 @@ where
 /// Return the path in the graveyard of the last file to be buried.
 /// As a side effect, any valid last files that are found in the record but
 /// not on the filesystem are removed from the record.
-fn get_last_bury<R: AsRef<Path>>(record: R) -> Result<PathBuf, Error> {
+fn get_last_bury(record: impl AsRef<Path>) -> Result<PathBuf, Error> {
     let f = fs::File::open(record.as_ref())?;
     let contents = {
         let path_f = PathBuf::from(record.as_ref());
@@ -498,9 +511,9 @@ fn seance<T: AsRef<str>>(f: fs::File, gravepath: T) -> impl Iterator<Item = Path
 }
 
 /// Takes a vector of grave paths and removes the respective lines from the record
-fn delete_lines_from_record<R: AsRef<Path>>(
+fn delete_lines_from_record(
     current_record: fs::File,
-    record: R,
+    record: impl AsRef<Path>,
     graves: &[PathBuf],
 ) -> Result<(), Error> {
     let record = record.as_ref();

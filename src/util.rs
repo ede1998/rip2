@@ -35,11 +35,7 @@ impl TestingMode for ProductionMode {
 }
 
 /// Prompt for user input, returning True if the first character is 'y' or 'Y'
-pub fn prompt_yes<T, M>(prompt: T, source: &M) -> bool
-where
-    T: AsRef<str>,
-    M: TestingMode,
-{
+pub fn prompt_yes(prompt: impl AsRef<str>, source: &impl TestingMode) -> bool {
     print!("{} (y/N) ", prompt.as_ref());
     if io::stdout().flush().is_err() {
         // If stdout wasn't flushed properly, fallback to println
@@ -61,7 +57,7 @@ where
 }
 
 /// Add a numbered extension to duplicate filenames to avoid overwriting files.
-pub fn rename_grave<G: AsRef<Path>>(grave: G) -> PathBuf {
+pub fn rename_grave(grave: impl AsRef<Path>) -> PathBuf {
     let grave = grave.as_ref();
     let name = grave.to_str().expect("Filename must be valid unicode.");
     (1_u64..)

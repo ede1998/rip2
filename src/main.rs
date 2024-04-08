@@ -23,7 +23,10 @@ fn main() -> ExitCode {
         return ExitCode::SUCCESS;
     }
 
-    if let Err(ref e) = rip2::run(cli, util::ProductionMode) {
+    let mode = util::ProductionMode;
+    let stream = stdout();
+
+    if let Err(ref e) = rip2::run(cli, mode, stream) {
         println!("Exception: {}", e);
         return ExitCode::FAILURE;
     }
