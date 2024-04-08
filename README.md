@@ -21,7 +21,7 @@ This version is a fork-of-a-fork:
 You can install this package from source with:
 
 ```bash
-$ cargo install --git https://github.com/MilesCranmer/rip2.git
+$ cargo install rip2
 ```
 
 No binaries are made available at this time.
