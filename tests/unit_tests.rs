@@ -1,6 +1,5 @@
-use rip2::args::{Args, validate_args};
+use rip2::args::{validate_args, Args};
 use rstest::rstest;
-
 
 #[rstest]
 fn test_validation() {
@@ -9,14 +8,12 @@ fn test_validation() {
         decompose: true,
         ..Args::default()
     };
-    validate_args(&bad_completions)
-        .expect_err("--completions can only be used by itself");
+    validate_args(&bad_completions).expect_err("--completions can only be used by itself");
 
     let bad_decompose = Args {
         decompose: true,
         seance: true,
         ..Args::default()
     };
-    validate_args(&bad_decompose)
-        .expect_err("-d,--decompose can only be used with --graveyard");
+    validate_args(&bad_decompose).expect_err("-d,--decompose can only be used with --graveyard");
 }
