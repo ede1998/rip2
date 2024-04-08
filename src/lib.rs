@@ -145,78 +145,77 @@ pub fn run(cli: Args, mode: impl util::TestingMode, stream: &mut impl Write) -> 
         return Ok(());
     }
 
-    if !cli.targets.is_empty() {
-        for target in cli.targets {
-            // Check if source exists
-            if let Ok(metadata) = fs::symlink_metadata(&target) {
-                // Canonicalize the path unless it's a symlink
-                let source = &if !metadata.file_type().is_symlink() {
-                    cwd.join(&target)
-                        .canonicalize()
-                        .map_err(|e| Error::new(e.kind(), "Failed to canonicalize path"))?
-                } else {
-                    cwd.join(&target)
-                };
+    if cli.targets.is_empty() {
+        Args::command().print_help()?;
+        return Ok(());
+    }
 
-                if cli.inspect {
-                    let moved_to_graveyard =
-                        do_inspection(target, source, metadata, &mode, stream)?;
-                    if moved_to_graveyard {
-                        continue;
-                    }
-                }
+    for target in cli.targets {
+        // Check if source exists
+        let metadata = fs::symlink_metadata(&target).map_err(|_| {
+            Error::new(
+                ErrorKind::NotFound,
+                format!(
+                    "Cannot remove {}: no such file or directory",
+                    target.to_str().unwrap()
+                ),
+            )
+        })?;
+        // Canonicalize the path unless it's a symlink
+        let source = &if !metadata.file_type().is_symlink() {
+            cwd.join(&target)
+                .canonicalize()
+                .map_err(|e| Error::new(e.kind(), "Failed to canonicalize path"))?
+        } else {
+            cwd.join(&target)
+        };
 
-                // If rip is called on a file already in the graveyard, prompt
-                // to permanently delete it instead.
-                if source.starts_with(&graveyard) {
-                    writeln!(stream, "{} is already in the graveyard.", source.display())?;
-                    if util::prompt_yes("Permanently unlink it?", &mode, stream)? {
-                        if fs::remove_dir_all(source).is_err() {
-                            if let Err(e) = fs::remove_file(source) {
-                                return Err(Error::new(e.kind(), "Couldn't unlink!"));
-                            }
-                        }
-                        continue;
-                    } else {
-                        writeln!(stream, "Skipping {}", source.display())?;
-                        return Ok(());
-                    }
-                }
-
-                let dest: &Path = &{
-                    let dest = util::join_absolute(&graveyard, source);
-                    // Resolve a name conflict if necessary
-                    if util::symlink_exists(&dest) {
-                        util::rename_grave(dest)
-                    } else {
-                        dest
-                    }
-                };
-
-                move_file(source, dest, &mode, stream).map_err(|e| {
-                    fs::remove_dir_all(dest).ok();
-                    Error::new(e.kind(), "Failed to bury file")
-                })?;
-
-                // Clean up any partial buries due to permission error
-                write_log(source, dest, record).map_err(|e| {
-                    Error::new(
-                        e.kind(),
-                        format!("Failed to write record at {}", record.display()),
-                    )
-                })?;
-            } else {
-                return Err(Error::new(
-                    ErrorKind::NotFound,
-                    format!(
-                        "Cannot remove {}: no such file or directory",
-                        target.to_str().unwrap()
-                    ),
-                ));
+        if cli.inspect {
+            let moved_to_graveyard = do_inspection(target, source, metadata, &mode, stream)?;
+            if moved_to_graveyard {
+                continue;
             }
         }
-    } else {
-        Args::command().print_help()?;
+
+        // If rip is called on a file already in the graveyard, prompt
+        // to permanently delete it instead.
+        if source.starts_with(&graveyard) {
+            writeln!(stream, "{} is already in the graveyard.", source.display())?;
+            if util::prompt_yes("Permanently unlink it?", &mode, stream)? {
+                if fs::remove_dir_all(source).is_err() {
+                    if let Err(e) = fs::remove_file(source) {
+                        return Err(Error::new(e.kind(), "Couldn't unlink!"));
+                    }
+                }
+                continue;
+            } else {
+                writeln!(stream, "Skipping {}", source.display())?;
+                return Ok(());
+            }
+        }
+
+        let dest: &Path = &{
+            let dest = util::join_absolute(&graveyard, source);
+            // Resolve a name conflict if necessary
+            if util::symlink_exists(&dest) {
+                util::rename_grave(dest)
+            } else {
+                dest
+            }
+        };
+
+        move_file(source, dest, &mode, stream).map_err(|e| {
+            fs::remove_dir_all(dest).ok();
+            Error::new(e.kind(), "Failed to bury file")
+        })?;
+
+        // Clean up any partial buries due to permission error
+        write_log(source, dest, record).map_err(|e| {
+            Error::new(
+                e.kind(),
+                format!("Failed to write record at {}", record.display()),
+            )
+        })?;
     }
 
     Ok(())
