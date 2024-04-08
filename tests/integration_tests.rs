@@ -262,6 +262,7 @@ fn test_duplicate_file(#[case] in_folder: bool, #[case] inspect: bool) {
     let log_s = String::from_utf8(log).unwrap();
     if inspect && in_folder {
         assert!(log_s.contains("dir: directory"));
+        assert!(log_s.contains("including:"));
         assert!(log_s.contains("to the graveyard? (y/N)"));
     }
 

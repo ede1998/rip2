@@ -105,7 +105,7 @@ pub fn run(cli: Args, mode: impl util::TestingMode, stream: &mut impl Write) -> 
                 false => PathBuf::from(entry.orig),
             };
 
-            bury(entry.dest, &orig, &mode, stream).map_err(|e| {
+            move_file(entry.dest, &orig, &mode, stream).map_err(|e| {
                 Error::new(
                     e.kind(),
                     format!(
@@ -194,7 +194,7 @@ pub fn run(cli: Args, mode: impl util::TestingMode, stream: &mut impl Write) -> 
                 };
 
                 {
-                    let res = bury(source, dest, &mode, stream).map_err(|e| {
+                    let res = move_file(source, dest, &mode, stream).map_err(|e| {
                         fs::remove_dir_all(dest).ok();
                         e
                     });
@@ -245,7 +245,7 @@ fn do_inspection(
                     .filter_map(|x| x.ok())
                     .filter_map(|x| x.metadata().ok())
                     .map(|x| x.len())
-                    .sum::<u64>()
+                    .sum::<u64>(),
             )
         )?;
 
@@ -308,7 +308,7 @@ fn write_log(
     Ok(())
 }
 
-pub fn bury(
+pub fn move_file(
     source: impl AsRef<Path>,
     dest: impl AsRef<Path>,
     mode: &impl util::TestingMode,
