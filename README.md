@@ -1,6 +1,6 @@
-# rip
+# rip 2
 
-[![Test](https://github.com/MilesCranmer/rip/actions/workflows/test.yml/badge.svg)](https://github.com/MilesCranmer/rip/actions/workflows/test.yml)
+[![Test](https://github.com/MilesCranmer/rip2/actions/workflows/test.yml/badge.svg)](https://github.com/MilesCranmer/rip2/actions/workflows/test.yml)
 
 `rip` is a rust-based `rm` with a focus on safety, ergonomics, and performance.  It favors a simple interface, and does *not* implement the xdg-trash spec or attempt to achieve the same goals.
 
@@ -8,13 +8,12 @@ Deleted files get sent to the graveyard (`/tmp/graveyard-$USER` by default, see 
 
 This version is a fork-of-a-fork:
 
-1. Unmaintained since 2020, Kevin Liu's original [`rip`](https://github.com/nivekuil/rip).
+1. Kevin Liu's original [`rip`](https://github.com/nivekuil/rip) which is unmaintained
 2. This was forked to [@StandingPadAnimation](https://github.com/StandingPadAnimations) who added a few features.
 3. Finally, that repo was forked [here](https://github.com/MilesCranmer/rip) with ongoing maintenance:
     - Added a test suite
-    - Adding several unmerged PRs from the original repo
-    - General maintenance/refactoring/optimization
-    - etc.
+    - Added a few unmerged PRs from the original repo
+    - General maintenance, refactoring to modern rust, and optimization
 
 ## Installation
 
