@@ -9,6 +9,8 @@ use walkdir::WalkDir;
 pub mod args;
 pub mod util;
 
+use args::Args;
+
 const GRAVEYARD: &str = "/tmp/graveyard";
 const RECORD: &str = ".record";
 const LINES_TO_INSPECT: usize = 6;
@@ -21,10 +23,7 @@ pub struct RecordItem<'a> {
     dest: &'a Path,
 }
 
-pub fn run<M>(cli: args::Args, mode: M) -> Result<(), Error>
-where
-    M: util::TestingMode,
-{
+pub fn run<M: util::TestingMode>(cli: Args, mode: M) -> Result<(), Error> {
     args::validate_args(&cli)?;
     // This selects the location of deleted
     // files based on the following order (from
@@ -214,16 +213,18 @@ where
             }
         }
     } else {
-        let _ = args::Args::command().print_help();
+        let _ = Args::command().print_help();
     }
 
     Ok(())
 }
 
-fn do_inspection<M>(target: PathBuf, source: &PathBuf, metadata: Metadata, mode: &M) -> bool
-where
-    M: util::TestingMode,
-{
+fn do_inspection<M: util::TestingMode>(
+    target: PathBuf,
+    source: &PathBuf,
+    metadata: Metadata,
+    mode: &M,
+) -> bool {
     if metadata.is_dir() {
         // Get the size of the directory and all its contents
         println!(
@@ -297,8 +298,10 @@ where
     Ok(())
 }
 
-pub fn bury<S: AsRef<Path>, D: AsRef<Path>, M>(source: S, dest: D, mode: &M) -> Result<(), Error>
+pub fn bury<S, D, M>(source: S, dest: D, mode: &M) -> Result<(), Error>
 where
+    S: AsRef<Path>,
+    D: AsRef<Path>,
     M: util::TestingMode,
 {
     let (source, dest) = (source.as_ref(), dest.as_ref());
@@ -386,8 +389,10 @@ where
     Ok(())
 }
 
-fn copy_file<S: AsRef<Path>, D: AsRef<Path>, M>(source: S, dest: D, mode: &M) -> Result<(), Error>
+fn copy_file<S, D, M>(source: S, dest: D, mode: &M) -> Result<(), Error>
 where
+    S: AsRef<Path>,
+    D: AsRef<Path>,
     M: util::TestingMode,
 {
     let (source, dest) = (source.as_ref(), dest.as_ref());

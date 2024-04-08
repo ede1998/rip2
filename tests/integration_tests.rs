@@ -1,6 +1,7 @@
 use rand::distributions::Alphanumeric;
 use rand::Rng;
-use rip::{self, args, util};
+use rip::Args;
+use rip::{self, util};
 use rstest::rstest;
 use std::env;
 use std::fs::{self, File};
@@ -89,11 +90,11 @@ fn test_bury_unbury(#[case] decompose: bool, #[case] inspect: bool) {
         util::join_absolute(&test_env.graveyard, test_data.path.canonicalize().unwrap());
 
     rip::run(
-        args::Args {
+        Args {
             targets: [test_data.path.clone()].to_vec(),
             graveyard: Some(test_env.graveyard.clone()),
             inspect,
-            ..args::Args::default()
+            ..Args::default()
         },
         TestMode,
     )
@@ -111,11 +112,11 @@ fn test_bury_unbury(#[case] decompose: bool, #[case] inspect: bool) {
     assert_eq!(restored_data_from_grave, test_data.data);
 
     rip::run(
-        args::Args {
+        Args {
             graveyard: Some(test_env.graveyard.clone()),
             decompose,
             unbury: if decompose { None } else { Some(Vec::new()) },
-            ..args::Args::default()
+            ..Args::default()
         },
         TestMode,
     )
@@ -184,10 +185,10 @@ fn test_env(#[case] env_var: &str) {
     env::set_var(env_var, graveyard);
 
     rip::run(
-        args::Args {
+        Args {
             targets: [test_data.path.clone()].to_vec(),
             // We don't set the graveyard here!
-            ..args::Args::default()
+            ..Args::default()
         },
         TestMode,
     )
@@ -214,10 +215,10 @@ fn test_duplicate_file() {
         util::join_absolute(&test_env.graveyard, test_data1.path.canonicalize().unwrap());
 
     rip::run(
-        args::Args {
+        Args {
             targets: [test_data1.path.clone()].to_vec(),
             graveyard: Some(test_env.graveyard.clone()),
-            ..args::Args::default()
+            ..Args::default()
         },
         TestMode,
     )
@@ -236,10 +237,10 @@ fn test_duplicate_file() {
     );
 
     rip::run(
-        args::Args {
+        Args {
             targets: [test_data2.path.clone()].to_vec(),
             graveyard: Some(test_env.graveyard.clone()),
-            ..args::Args::default()
+            ..Args::default()
         },
         TestMode,
     )

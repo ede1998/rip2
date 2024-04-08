@@ -35,8 +35,9 @@ impl TestingMode for ProductionMode {
 }
 
 /// Prompt for user input, returning True if the first character is 'y' or 'Y'
-pub fn prompt_yes<T: AsRef<str>, M>(prompt: T, source: &M) -> bool
+pub fn prompt_yes<T, M>(prompt: T, source: &M) -> bool
 where
+    T: AsRef<str>,
     M: TestingMode,
 {
     print!("{} (y/N) ", prompt.as_ref());
