@@ -93,10 +93,7 @@ pub fn run(cli: args::Args) -> Result<(), Error> {
         }
 
         // Go through the graveyard and exhume all the graves
-        let f = match fs::File::open(record) {
-            Ok(file) => file,
-            Err(err) => return Err(err),
-        };
+        let f = fs::File::open(record)?;
 
         for line in lines_of_graves(f, &graves_to_exhume) {
             let entry: RecordItem = record_entry(&line);
@@ -105,16 +102,16 @@ pub fn run(cli: args::Args) -> Result<(), Error> {
                 false => PathBuf::from(entry.orig),
             };
 
-            if let Err(e) = bury(entry.dest, &orig) {
-                return Err(Error::new(
+            bury(entry.dest, &orig).map_err(|e| {
+                Error::new(
                     e.kind(),
                     format!(
                         "Unbury failed: couldn't copy files from {} to {}",
                         entry.dest.display(),
                         orig.display()
                     ),
-                ));
-            };
+                )
+            })?;
             println!("Returned {} to {}", entry.dest.display(), orig.display());
         }
 
@@ -146,11 +143,9 @@ pub fn run(cli: args::Args) -> Result<(), Error> {
             if let Ok(metadata) = fs::symlink_metadata(&target) {
                 // Canonicalize the path unless it's a symlink
                 let source = &if !metadata.file_type().is_symlink() {
-                    let cwd = cwd.join(&target).canonicalize();
-                    if let Err(e) = cwd {
-                        return Err(Error::new(e.kind(), "Failed to canonicalize path"));
-                    }
-                    cwd.unwrap()
+                    cwd.join(&target)
+                        .canonicalize()
+                        .map_err(|e| Error::new(e.kind(), "Failed to canonicalize path"))?
                 } else {
                     cwd.join(&target)
                 };

@@ -157,6 +157,7 @@ fn test_env(#[case] env_var: &str) {
     let test_env = TestEnv::new();
     let test_data = TestData::new(&test_env);
     let modified_graveyard = if env_var == "XDG_DATA_HOME" {
+        // XDG version adds a "graveyard" folder
         util::join_absolute(&test_env.graveyard, "graveyard")
     } else {
         test_env.graveyard.clone()
