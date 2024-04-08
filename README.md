@@ -35,7 +35,7 @@ Arguments:
   [TARGETS]...  File or directory to remove or unbury
 
 Flags:
-  -u, --unbury <target>        Restore the specified files or the last file if none are specified
+  -u, --unbury                 Restore the specified files or the last file if none are specified
   -s, --seance                 Prints files that were deleted in the current working directory
   -i, --inspect                Print some info about TARGET before burying
   -d, --decompose              Permanently deletes the graveyard
