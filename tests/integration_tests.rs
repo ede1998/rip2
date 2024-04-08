@@ -1,48 +1,49 @@
 use rand::distributions::Alphanumeric;
 use rand::Rng;
+use rip::{self, args, util};
 use rstest::rstest;
-use std::env::{self, temp_dir};
+use std::env;
 use std::fs::{self, File};
 use std::io::Write;
 use std::path::PathBuf;
+use std::sync::{Mutex, MutexGuard};
+use tempfile::{tempdir, TempDir};
 
-use rip::{self, args, util};
+use lazy_static::lazy_static;
 
-#[derive(Debug)]
+lazy_static! {
+    static ref GLOBAL_LOCK: Mutex<()> = Mutex::new(());
+}
+
+fn aquire_lock() -> MutexGuard<'static, ()> {
+    GLOBAL_LOCK.lock().unwrap()
+}
+
 struct TestEnv {
-    tmpdir: PathBuf,
+    _tmpdir: TempDir,
     graveyard: PathBuf,
     src: PathBuf,
 }
 
 impl TestEnv {
     fn new() -> TestEnv {
-        let rand_string = rand::thread_rng()
-            .sample_iter(&Alphanumeric)
-            .take(16)
-            .map(char::from)
-            .collect::<String>();
-        let tmpdir = temp_dir().join(format!("rip_test_{}", rand_string));
-        let graveyard = tmpdir.join("graveyard");
-        let src = tmpdir.join("data");
+        let _tmpdir = tempdir().unwrap();
+        let tmpdir_pathbuf = PathBuf::from(_tmpdir.path());
+        let graveyard = tmpdir_pathbuf.join("graveyard");
+        let src = tmpdir_pathbuf.join("data");
 
         // The graveyard should be created, so we don't test this:
-        //// fs::create_dir_all(&graveyard).unwrap();
+        // fs::create_dir_all(&graveyard).unwrap();
         fs::create_dir_all(&src).unwrap();
 
         TestEnv {
-            tmpdir,
+            _tmpdir,
             graveyard,
             src,
         }
     }
-    // Rustc Opposite of new:
-    fn teardown(self) {
-        let _ = fs::remove_dir_all(self.tmpdir);
-    }
 }
 
-#[derive(Debug)]
 struct TestData {
     data: String,
     path: PathBuf,
@@ -70,6 +71,8 @@ impl TestData {
 #[case::unbury(false)]
 #[case::decomposition(true)]
 fn test_bury_unbury(#[case] decompose: bool) {
+    let _env_lock = aquire_lock();
+
     let test_env = TestEnv::new();
     let test_data = TestData::new(&test_env);
     // And is now in the graveyard
@@ -114,8 +117,6 @@ fn test_bury_unbury(#[case] decompose: bool) {
         let restored_data = fs::read_to_string(&test_data.path).unwrap();
         assert_eq!(restored_data, test_data.data);
     }
-
-    test_env.teardown();
 }
 
 const ENV_VARS: [&str; 2] = ["GRAVEYARD", "XDG_DATA_HOME"];
@@ -149,7 +150,9 @@ fn restore_env_vars(default_env_vars: [Option<String>; 2]) {
 #[rstest]
 #[case::env_graveyard("GRAVEYARD")]
 #[case::env_xdg_data_home("XDG_DATA_HOME")]
-fn test_graveyard_env(#[case] env_var: &str) {
+fn test_env(#[case] env_var: &str) {
+    let _env_lock = aquire_lock();
+
     let default_env_vars = cache_and_remove_env_vars();
     let test_env = TestEnv::new();
     let test_data = TestData::new(&test_env);
@@ -160,8 +163,6 @@ fn test_graveyard_env(#[case] env_var: &str) {
     };
     let expected_graveyard_path =
         util::join_absolute(modified_graveyard, test_data.path.canonicalize().unwrap());
-
-    println!("Graveyard dir: {}", expected_graveyard_path.display());
 
     let graveyard = test_env.graveyard.clone();
     env::set_var(env_var, graveyard);
@@ -180,5 +181,4 @@ fn test_graveyard_env(#[case] env_var: &str) {
     assert_eq!(restored_data, test_data.data);
 
     restore_env_vars(default_env_vars);
-    test_env.teardown();
 }
