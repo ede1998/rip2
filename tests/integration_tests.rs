@@ -101,9 +101,12 @@ fn test_bury_unbury(#[case] decompose: bool, #[case] inspect: bool) {
         &mut log,
     )
     .unwrap();
-    // TODO: Test that `inspect` is working correctly
-    let log_s = String::from_utf8(log).unwrap();
-    // assert!(log_s.contains("Burying"));
+    if inspect {
+        let log_s = String::from_utf8(log).unwrap();
+        assert!(log_s.contains("100 bytes"));
+    } else {
+        assert!(log.is_empty())
+    }
 
     // Verify that the file no longer exists
     assert!(!test_data.path.exists());
@@ -128,6 +131,12 @@ fn test_bury_unbury(#[case] decompose: bool, #[case] inspect: bool) {
         &mut log,
     )
     .unwrap();
+    let log_s = String::from_utf8(log).unwrap();
+    if decompose {
+        assert!(log_s.contains("Really unlink the entire graveyard?"));
+    } else {
+        assert!(log_s.contains("Returned"));
+    }
 
     if decompose {
         // Verify that the graveyard is completely deleted
