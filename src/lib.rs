@@ -16,7 +16,7 @@ const GRAVEYARD: &str = "/tmp/graveyard";
 const RECORD: &str = ".record";
 const LINES_TO_INSPECT: usize = 6;
 const FILES_TO_INSPECT: usize = 6;
-const BIG_FILE_THRESHOLD: u64 = 500000000; // 500 MB
+pub const BIG_FILE_THRESHOLD: u64 = 500000000; // 500 MB
 
 pub struct RecordItem<'a> {
     _time: &'a str,

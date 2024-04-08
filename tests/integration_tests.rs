@@ -307,3 +307,38 @@ fn test_duplicate_file(#[case] in_folder: bool) {
     }
     env::set_current_dir(cur_dir).unwrap();
 }
+
+/// Test that big files trigger special behavior.
+/// In this test, we simply delete it automatically.
+#[rstest]
+fn test_big_file() {
+    let _env_lock = aquire_lock();
+
+    let test_env = TestEnv::new();
+    // Access constant BIG_FILE_THRESHOLD from rip2's lib.rs:
+    let size = rip2::BIG_FILE_THRESHOLD + 1;
+
+    // test_env.src
+    let big_file_path = test_env.src.join("big_file.txt");
+    let file = File::create(&big_file_path).unwrap();
+    file.set_len(size).unwrap();
+
+    let expected_graveyard_path =
+        util::join_absolute(&test_env.graveyard, big_file_path.canonicalize().unwrap());
+
+    rip2::run(
+        Args {
+            targets: [test_env.src.join("big_file.txt")].to_vec(),
+            graveyard: Some(test_env.graveyard.clone()),
+            ..Args::default()
+        },
+        TestMode,
+    )
+    .unwrap();
+
+    // The file should be deleted
+    assert!(!test_env.src.join("big_file.txt").exists());
+
+    // And not in the graveyard either
+    assert!(!expected_graveyard_path.exists());
+}
