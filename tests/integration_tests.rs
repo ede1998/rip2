@@ -57,14 +57,15 @@ struct TestData {
 }
 
 impl TestData {
-    fn new(test_env: &TestEnv) -> TestData {
+    fn new(test_env: &TestEnv, filename: Option<&str>) -> TestData {
         let data = rand::thread_rng()
             .sample_iter(&Alphanumeric)
             .take(100)
             .map(char::from)
             .collect::<String>();
 
-        let path = test_env.src.join("test_file.txt");
+        let taken_filename = filename.unwrap_or("test_file.txt");
+        let path = test_env.src.join(taken_filename);
         let mut file = File::create(&path).unwrap();
         file.write_all(data.as_bytes()).unwrap();
 
@@ -82,7 +83,7 @@ fn test_bury_unbury(#[case] decompose: bool, #[case] inspect: bool) {
     let _env_lock = aquire_lock();
 
     let test_env = TestEnv::new();
-    let test_data = TestData::new(&test_env);
+    let test_data = TestData::new(&test_env, None);
     // And is now in the graveyard
     let expected_graveyard_path =
         util::join_absolute(&test_env.graveyard, test_data.path.canonicalize().unwrap());
@@ -169,7 +170,7 @@ fn test_env(#[case] env_var: &str) {
 
     let default_env_vars = cache_and_remove_env_vars();
     let test_env = TestEnv::new();
-    let test_data = TestData::new(&test_env);
+    let test_data = TestData::new(&test_env, None);
     let modified_graveyard = if env_var == "XDG_DATA_HOME" {
         // XDG version adds a "graveyard" folder
         util::join_absolute(&test_env.graveyard, "graveyard")
@@ -199,4 +200,51 @@ fn test_env(#[case] env_var: &str) {
     assert_eq!(restored_data, test_data.data);
 
     restore_env_vars(default_env_vars);
+}
+
+#[rstest]
+fn test_duplicate_file() {
+    let _env_lock = aquire_lock();
+
+    let test_env = TestEnv::new();
+
+    // Bury the first file
+    let test_data1 = TestData::new(&test_env, Some("file.txt"));
+    let expected_graveyard_path1 =
+        util::join_absolute(&test_env.graveyard, test_data1.path.canonicalize().unwrap());
+
+    rip::run(
+        args::Args {
+            targets: [test_data1.path.clone()].to_vec(),
+            graveyard: Some(test_env.graveyard.clone()),
+            ..args::Args::default()
+        },
+        TestSource,
+    )
+    .unwrap();
+
+    assert!(expected_graveyard_path1.exists());
+
+    // Bury the second file
+    let test_data2 = TestData::new(&test_env, Some("file.txt"));
+    let expected_graveyard_path2 = util::join_absolute(
+        &test_env.graveyard,
+        PathBuf::from(format!(
+            "{}~1",
+            test_data2.path.canonicalize().unwrap().to_str().unwrap()
+        )),
+    );
+
+    rip::run(
+        args::Args {
+            targets: [test_data2.path.clone()].to_vec(),
+            graveyard: Some(test_env.graveyard.clone()),
+            ..args::Args::default()
+        },
+        TestSource,
+    )
+    .unwrap();
+
+    // The second file will be in the same folder, but with '~1' appended
+    assert!(expected_graveyard_path2.exists());
 }
