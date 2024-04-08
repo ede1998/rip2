@@ -10,7 +10,7 @@ This version is a fork-of-a-fork:
 
 1. Kevin Liu's original [`rip`](https://github.com/nivekuil/rip) which is unmaintained
 2. This was forked to [@StandingPadAnimation](https://github.com/StandingPadAnimations) who added a few features.
-3. Finally, that repo was forked [here](https://github.com/MilesCranmer/rip) with ongoing maintenance:
+3. Finally, that repo was forked [here](https://github.com/MilesCranmer/rip2) with ongoing maintenance:
     - Added a test suite
     - Added a few unmerged PRs from the original repo
     - General maintenance, refactoring to modern rust, and optimization
@@ -20,7 +20,7 @@ This version is a fork-of-a-fork:
 You can install this package from source with:
 
 ```bash
-$ cargo install --git https://github.com/MilesCranmer/rip.git
+$ cargo install --git https://github.com/MilesCranmer/rip2.git
 ```
 
 No binaries are made available at this time.
