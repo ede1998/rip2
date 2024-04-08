@@ -37,6 +37,7 @@ jobs:
         with:
           toolchain: ${{ matrix.rust-version }}
           components: rustfmt, clippy
+      - uses: Swatinem/rust-cache@v2
       - name: Install tarpaulin
         run: cargo install cargo-tarpaulin
       - name: Test compilation
