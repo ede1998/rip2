@@ -99,6 +99,7 @@ fn test_bury_unbury(#[case] decompose: bool, #[case] inspect: bool) {
         TestMode,
     )
     .unwrap();
+    // TODO: Test that `inspect` is working correctly
 
     // Verify that the file no longer exists
     assert!(!test_data.path.exists());
