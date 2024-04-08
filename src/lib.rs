@@ -1,3 +1,4 @@
+use chrono::Local;
 use clap::CommandFactory;
 use std::fs::Metadata;
 use std::io::{BufRead, BufReader, Error, ErrorKind, Write};
@@ -290,7 +291,7 @@ where
     writeln!(
         f,
         "{}\t{}\t{}",
-        time::now().ctime(),
+        Local::now().to_rfc3339(),
         source.display(),
         dest.display()
     )?;
