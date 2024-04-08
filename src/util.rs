@@ -23,12 +23,12 @@ pub fn get_user() -> String {
 }
 
 // Allows injection of test-specific behavior
-pub trait ValueSource {
+pub trait TestingMode {
     fn is_test(&self) -> bool;
 }
 
-pub struct ProductionSource;
-impl ValueSource for ProductionSource {
+pub struct ProductionMode;
+impl TestingMode for ProductionMode {
     fn is_test(&self) -> bool {
         false
     }
@@ -37,7 +37,7 @@ impl ValueSource for ProductionSource {
 /// Prompt for user input, returning True if the first character is 'y' or 'Y'
 pub fn prompt_yes<T: AsRef<str>, M>(prompt: T, source: &M) -> bool
 where
-    M: ValueSource,
+    M: TestingMode,
 {
     print!("{} (y/N) ", prompt.as_ref());
     if io::stdout().flush().is_err() {

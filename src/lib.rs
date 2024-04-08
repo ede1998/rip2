@@ -23,7 +23,7 @@ pub struct RecordItem<'a> {
 
 pub fn run<M>(cli: args::Args, mode: M) -> Result<(), Error>
 where
-    M: util::ValueSource,
+    M: util::TestingMode,
 {
     args::validate_args(&cli)?;
     // This selects the location of deleted
@@ -222,7 +222,7 @@ where
 
 fn do_inspection<M>(target: PathBuf, source: &PathBuf, metadata: Metadata, mode: &M) -> bool
 where
-    M: util::ValueSource,
+    M: util::TestingMode,
 {
     if metadata.is_dir() {
         // Get the size of the directory and all its contents
@@ -299,7 +299,7 @@ where
 
 pub fn bury<S: AsRef<Path>, D: AsRef<Path>, M>(source: S, dest: D, mode: &M) -> Result<(), Error>
 where
-    M: util::ValueSource,
+    M: util::TestingMode,
 {
     let (source, dest) = (source.as_ref(), dest.as_ref());
     // Try a simple rename, which will only work within the same mount point.
@@ -388,7 +388,7 @@ where
 
 fn copy_file<S: AsRef<Path>, D: AsRef<Path>, M>(source: S, dest: D, mode: &M) -> Result<(), Error>
 where
-    M: util::ValueSource,
+    M: util::TestingMode,
 {
     let (source, dest) = (source.as_ref(), dest.as_ref());
     let metadata = fs::symlink_metadata(source)?;

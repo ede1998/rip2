@@ -19,8 +19,8 @@ fn aquire_lock() -> MutexGuard<'static, ()> {
     GLOBAL_LOCK.lock().unwrap()
 }
 
-struct TestSource;
-impl util::ValueSource for TestSource {
+struct TestMode;
+impl util::TestingMode for TestMode {
     fn is_test(&self) -> bool {
         true
     }
@@ -95,7 +95,7 @@ fn test_bury_unbury(#[case] decompose: bool, #[case] inspect: bool) {
             inspect,
             ..args::Args::default()
         },
-        TestSource,
+        TestMode,
     )
     .unwrap();
 
@@ -117,7 +117,7 @@ fn test_bury_unbury(#[case] decompose: bool, #[case] inspect: bool) {
             unbury: if decompose { None } else { Some(Vec::new()) },
             ..args::Args::default()
         },
-        TestSource,
+        TestMode,
     )
     .unwrap();
 
@@ -189,7 +189,7 @@ fn test_env(#[case] env_var: &str) {
             // We don't set the graveyard here!
             ..args::Args::default()
         },
-        TestSource,
+        TestMode,
     )
     .unwrap();
 
@@ -219,7 +219,7 @@ fn test_duplicate_file() {
             graveyard: Some(test_env.graveyard.clone()),
             ..args::Args::default()
         },
-        TestSource,
+        TestMode,
     )
     .unwrap();
 
@@ -241,7 +241,7 @@ fn test_duplicate_file() {
             graveyard: Some(test_env.graveyard.clone()),
             ..args::Args::default()
         },
-        TestSource,
+        TestMode,
     )
     .unwrap();
 

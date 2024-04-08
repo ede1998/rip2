@@ -23,7 +23,7 @@ fn main() -> ExitCode {
         return ExitCode::SUCCESS;
     }
 
-    if let Err(ref e) = rip::run(cli, util::ProductionSource) {
+    if let Err(ref e) = rip::run(cli, util::ProductionMode) {
         println!("Exception: {}", e);
         return ExitCode::FAILURE;
     }
