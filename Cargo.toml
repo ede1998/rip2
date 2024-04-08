@@ -35,6 +35,10 @@ opt-level = 3
 name = "integration_tests"
 path = "tests/integration_tests.rs"
 
+[[test]]
+name = "unit_tests"
+path = "tests/unit_tests.rs"
+
 [[bin]]
 name = "rip"
 path = "src/main.rs"
