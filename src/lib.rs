@@ -304,12 +304,11 @@ fn write_log(
 }
 
 pub fn move_file(
-    source: impl AsRef<Path>,
-    dest: impl AsRef<Path>,
+    source: &Path,
+    dest: &Path,
     mode: &impl util::TestingMode,
     stream: &mut impl Write,
 ) -> Result<(), Error> {
-    let (source, dest) = (source.as_ref(), dest.as_ref());
     // Try a simple rename, which will only work within the same mount point.
     // Trying to rename across filesystems will throw errno 18.
     if fs::rename(source, dest).is_ok() {
