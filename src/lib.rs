@@ -314,12 +314,9 @@ where
 
     // If that didn't work, then copy and rm.
     {
-        let parent = dest.parent().ok_or_else(|| {
-            Error::new(
-                ErrorKind::NotFound,
-                "Could not get parent of dest!",
-            )
-        })?;
+        let parent = dest
+            .parent()
+            .ok_or_else(|| Error::new(ErrorKind::NotFound, "Could not get parent of dest!"))?;
 
         fs::create_dir_all(parent)?
     }
