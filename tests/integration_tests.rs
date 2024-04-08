@@ -281,4 +281,26 @@ fn test_duplicate_file(#[case] in_folder: bool) {
 
     // The second file will be in the same folder, but with '~1' appended
     assert!(expected_graveyard_path2.exists());
+
+    // Navigate to the test_env.src directory
+    if !in_folder {
+        let cur_dir = env::current_dir().unwrap();
+        env::set_current_dir(&test_env.src).unwrap();
+        // Unbury using seance
+        rip2::run(
+            Args {
+                graveyard: Some(test_env.graveyard.clone()),
+                unbury: Some(Vec::new()),
+                seance: true,
+                ..Args::default()
+            },
+            TestMode,
+        )
+        .unwrap();
+
+        // Now, both files should be restored, one with the original name and the other with '~1' appended
+        assert!(test_data1.path.exists());
+        assert!(test_env.src.join("file.txt~1").exists());
+        env::set_current_dir(cur_dir).unwrap();
+    }
 }
