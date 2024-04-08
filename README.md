@@ -29,22 +29,22 @@ No binaries are made available at this time.
 ## Usage
 
 ```text
-USAGE:
-    rip [FLAGS] [OPTIONS] [TARGET]...
+Usage: rip [OPTIONS] [TARGETS]...
 
-FLAGS:
-    -d, --decompose    Permanently deletes (unlink) the entire graveyard
-    -h, --help         Prints help information
-    -i, --inspect      Prints some info about TARGET before prompting for action
-    -s, --seance       Prints files that were sent under the current directory
-    -V, --version      Prints version information
+Arguments:
+  [TARGETS]...  File or directory to remove or unbury
 
-OPTIONS:
-        --graveyard <graveyard>    Directory where deleted files go to rest
-    -u, --unbury <target>       Undo the last removal by the current user, or specify some file(s) in the graveyard.  Combine with -s to restore everything printed by -s.
+Flags:
+  -u, --unbury <target>        Restore the specified files or the last file if none are specified
+  -s, --seance                 Prints files that were deleted in the current working directory
+  -i, --inspect                Print some info about TARGET before burying
+  -d, --decompose              Permanently deletes the graveyard
+  -h, --help                   Print help
+  -V, --version                Print version
 
-ARGS:
-    <TARGET>...    File or directory to remove
+Options:
+      --graveyard <GRAVEYARD>  Directory where deleted files rest
+      --completions <SHELL>    Generate shell completions file for the specified shell
 ```
 
 Basic usage -- easier than rm
