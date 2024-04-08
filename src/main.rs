@@ -24,9 +24,9 @@ fn main() -> ExitCode {
     }
 
     let mode = util::ProductionMode;
-    let stream = stdout();
+    let mut stream = stdout();
 
-    if let Err(ref e) = rip2::run(cli, mode, stream) {
+    if let Err(ref e) = rip2::run(cli, mode, &mut stream) {
         println!("Exception: {}", e);
         return ExitCode::FAILURE;
     }

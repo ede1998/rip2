@@ -24,7 +24,7 @@ pub struct RecordItem<'a> {
     dest: &'a Path,
 }
 
-pub fn run(cli: Args, mode: impl util::TestingMode, mut stream: impl Write) -> Result<(), Error> {
+pub fn run(cli: Args, mode: impl util::TestingMode, stream: &mut impl Write) -> Result<(), Error> {
     args::validate_args(&cli)?;
     // This selects the location of deleted
     // files based on the following order (from
@@ -58,7 +58,7 @@ pub fn run(cli: Args, mode: impl util::TestingMode, mut stream: impl Write) -> R
 
     // If the user wishes to restore everything
     if cli.decompose {
-        if util::prompt_yes("Really unlink the entire graveyard?", &mode) {
+        if util::prompt_yes("Really unlink the entire graveyard?", &mode, stream)? {
             fs::remove_dir_all(graveyard)?;
         }
         return Ok(());
@@ -105,7 +105,7 @@ pub fn run(cli: Args, mode: impl util::TestingMode, mut stream: impl Write) -> R
                 false => PathBuf::from(entry.orig),
             };
 
-            bury(entry.dest, &orig, &mode, &mut stream).map_err(|e| {
+            bury(entry.dest, &orig, &mode, stream).map_err(|e| {
                 Error::new(
                     e.kind(),
                     format!(
@@ -160,7 +160,7 @@ pub fn run(cli: Args, mode: impl util::TestingMode, mut stream: impl Write) -> R
 
                 if cli.inspect {
                     let moved_to_graveyard =
-                        do_inspection(target, source, metadata, &mode, &mut stream)?;
+                        do_inspection(target, source, metadata, &mode, stream)?;
                     if moved_to_graveyard {
                         continue;
                     }
@@ -170,7 +170,7 @@ pub fn run(cli: Args, mode: impl util::TestingMode, mut stream: impl Write) -> R
                 // to permanently delete it instead.
                 if source.starts_with(&graveyard) {
                     writeln!(stream, "{} is already in the graveyard.", source.display())?;
-                    if util::prompt_yes("Permanently unlink it?", &mode) {
+                    if util::prompt_yes("Permanently unlink it?", &mode, stream)? {
                         if fs::remove_dir_all(source).is_err() {
                             if let Err(e) = fs::remove_file(source) {
                                 return Err(Error::new(e.kind(), "Couldn't unlink!"));
@@ -194,7 +194,7 @@ pub fn run(cli: Args, mode: impl util::TestingMode, mut stream: impl Write) -> R
                 };
 
                 {
-                    let res = bury(source, dest, &mode, &mut stream).map_err(|e| {
+                    let res = bury(source, dest, &mode, stream).map_err(|e| {
                         fs::remove_dir_all(dest).ok();
                         e
                     });
@@ -282,7 +282,8 @@ fn do_inspection(
     Ok(!util::prompt_yes(
         format!("Send {} to the graveyard?", target.to_str().unwrap()),
         mode,
-    ))
+        stream,
+    )?)
 }
 
 /// Write deletion history to record
@@ -410,7 +411,7 @@ fn copy_file(
             source.display(),
             util::humanize_bytes(metadata.len())
         )?;
-        if util::prompt_yes("Permanently delete this file instead?", mode) {
+        if util::prompt_yes("Permanently delete this file instead?", mode, stream)? {
             return Ok(());
         }
     }
@@ -433,7 +434,7 @@ fn copy_file(
             "Non-regular file or directory: {}",
             source.display()
         )?;
-        if !util::prompt_yes("Permanently delete the file?", mode) {
+        if !util::prompt_yes("Permanently delete the file?", mode, stream)? {
             return Err(e);
         }
         // Create a dummy file to act as a marker in the graveyard
