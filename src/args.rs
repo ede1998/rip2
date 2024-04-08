@@ -16,10 +16,6 @@ pub struct Args {
     #[arg(short, long)]
     pub decompose: bool,
 
-    /// Deletes the graveyard without confirmation
-    #[arg(short, long)]
-    pub force: bool,
-
     /// Prints files that were deleted
     /// in the current working directory
     #[arg(short, long)]
@@ -42,12 +38,9 @@ pub struct Args {
     pub completions: Option<String>,
 }
 
-// TODO: Replace `force` with a general non-interactive flag
-
 struct IsDefault {
     graveyard: bool,
     decompose: bool,
-    force: bool,
     seance: bool,
     unbury: bool,
     inspect: bool,
@@ -60,7 +53,6 @@ impl IsDefault {
         IsDefault {
             graveyard: cli.graveyard == defaults.graveyard,
             decompose: cli.decompose == defaults.decompose,
-            force: cli.force == defaults.force,
             seance: cli.seance == defaults.seance,
             unbury: cli.unbury == defaults.unbury,
             inspect: cli.inspect == defaults.inspect,
@@ -77,7 +69,6 @@ pub fn validate_args(cli: &Args) -> Result<(), Error> {
     if !defaults.completions
         && !(defaults.graveyard
             && defaults.decompose
-            && defaults.force
             && defaults.seance
             && defaults.unbury
             && defaults.inspect)
@@ -87,17 +78,10 @@ pub fn validate_args(cli: &Args) -> Result<(), Error> {
             "--completions can only be used by itself",
         ));
     }
-    // Furthermore, [force] and [decompose] only work with eachother
-    if !defaults.force && !(defaults.seance && defaults.unbury && defaults.inspect) {
-        return Err(Error::new(
-            ErrorKind::InvalidInput,
-            "-f,--force can only be used with -d,--decompose and --graveyard",
-        ));
-    }
     if !defaults.decompose && !(defaults.seance && defaults.unbury && defaults.inspect) {
         return Err(Error::new(
             ErrorKind::InvalidInput,
-            "-d,--decompose can only be used with -f,--force and --graveyard",
+            "-d,--decompose can only be used with --graveyard",
         ));
     }
 

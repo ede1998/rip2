@@ -19,6 +19,13 @@ fn aquire_lock() -> MutexGuard<'static, ()> {
     GLOBAL_LOCK.lock().unwrap()
 }
 
+struct TestSource;
+impl util::ValueSource for TestSource {
+    fn is_test(&self) -> bool {
+        true
+    }
+}
+
 struct TestEnv {
     _tmpdir: TempDir,
     graveyard: PathBuf,
@@ -68,9 +75,10 @@ impl TestData {
 /// Test that a file is buried and unburied correctly
 /// Also checks that the graveyard is deleted when decompose is true
 #[rstest]
-#[case::unbury(false)]
-#[case::decomposition(true)]
-fn test_bury_unbury(#[case] decompose: bool) {
+#[case::unbury(false, false)]
+#[case::unbury_with_inspect(false, true)]
+#[case::decomposition(true, false)]
+fn test_bury_unbury(#[case] decompose: bool, #[case] inspect: bool) {
     let _env_lock = aquire_lock();
 
     let test_env = TestEnv::new();
@@ -79,11 +87,15 @@ fn test_bury_unbury(#[case] decompose: bool) {
     let expected_graveyard_path =
         util::join_absolute(&test_env.graveyard, test_data.path.canonicalize().unwrap());
 
-    rip::run(args::Args {
-        targets: [test_data.path.clone()].to_vec(),
-        graveyard: Some(test_env.graveyard.clone()),
-        ..args::Args::default()
-    })
+    rip::run(
+        args::Args {
+            targets: [test_data.path.clone()].to_vec(),
+            graveyard: Some(test_env.graveyard.clone()),
+            inspect,
+            ..args::Args::default()
+        },
+        TestSource,
+    )
     .unwrap();
 
     // Verify that the file no longer exists
@@ -97,13 +109,15 @@ fn test_bury_unbury(#[case] decompose: bool) {
     let restored_data_from_grave = fs::read_to_string(&expected_graveyard_path).unwrap();
     assert_eq!(restored_data_from_grave, test_data.data);
 
-    rip::run(args::Args {
-        graveyard: Some(test_env.graveyard.clone()),
-        decompose,
-        force: decompose,
-        unbury: if decompose { None } else { Some(Vec::new()) },
-        ..args::Args::default()
-    })
+    rip::run(
+        args::Args {
+            graveyard: Some(test_env.graveyard.clone()),
+            decompose,
+            unbury: if decompose { None } else { Some(Vec::new()) },
+            ..args::Args::default()
+        },
+        TestSource,
+    )
     .unwrap();
 
     if decompose {
@@ -168,11 +182,14 @@ fn test_env(#[case] env_var: &str) {
     let graveyard = test_env.graveyard.clone();
     env::set_var(env_var, graveyard);
 
-    rip::run(args::Args {
-        targets: [test_data.path.clone()].to_vec(),
-        // We don't set the graveyard here!
-        ..args::Args::default()
-    })
+    rip::run(
+        args::Args {
+            targets: [test_data.path.clone()].to_vec(),
+            // We don't set the graveyard here!
+            ..args::Args::default()
+        },
+        TestSource,
+    )
     .unwrap();
 
     assert!(!test_data.path.exists());

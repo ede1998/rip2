@@ -21,7 +21,10 @@ pub struct RecordItem<'a> {
     dest: &'a Path,
 }
 
-pub fn run(cli: args::Args) -> Result<(), Error> {
+pub fn run<M>(cli: args::Args, mode: M) -> Result<(), Error>
+where
+    M: util::ValueSource,
+{
     args::validate_args(&cli)?;
     // This selects the location of deleted
     // files based on the following order (from
@@ -55,7 +58,7 @@ pub fn run(cli: args::Args) -> Result<(), Error> {
 
     // If the user wishes to restore everything
     if cli.decompose {
-        if cli.force || util::prompt_yes("Really unlink the entire graveyard?") {
+        if util::prompt_yes("Really unlink the entire graveyard?", &mode) {
             fs::remove_dir_all(graveyard)?;
         }
         return Ok(());
@@ -102,7 +105,7 @@ pub fn run(cli: args::Args) -> Result<(), Error> {
                 false => PathBuf::from(entry.orig),
             };
 
-            bury(entry.dest, &orig).map_err(|e| {
+            bury(entry.dest, &orig, &mode).map_err(|e| {
                 Error::new(
                     e.kind(),
                     format!(
@@ -151,7 +154,7 @@ pub fn run(cli: args::Args) -> Result<(), Error> {
                 };
 
                 if cli.inspect {
-                    let moved_to_graveyard = do_inspection(target, source, metadata);
+                    let moved_to_graveyard = do_inspection(target, source, metadata, &mode);
                     if moved_to_graveyard {
                         continue;
                     }
@@ -161,7 +164,7 @@ pub fn run(cli: args::Args) -> Result<(), Error> {
                 // to permanently delete it instead.
                 if source.starts_with(&graveyard) {
                     println!("{} is already in the graveyard.", source.display());
-                    if util::prompt_yes("Permanently unlink it?") {
+                    if util::prompt_yes("Permanently unlink it?", &mode) {
                         if fs::remove_dir_all(source).is_err() {
                             if let Err(e) = fs::remove_file(source) {
                                 return Err(Error::new(e.kind(), "Couldn't unlink!"));
@@ -185,7 +188,7 @@ pub fn run(cli: args::Args) -> Result<(), Error> {
                 };
 
                 {
-                    let res = bury(source, dest).map_err(|e| {
+                    let res = bury(source, dest, &mode).map_err(|e| {
                         fs::remove_dir_all(dest).ok();
                         e
                     });
@@ -217,7 +220,10 @@ pub fn run(cli: args::Args) -> Result<(), Error> {
     Ok(())
 }
 
-fn do_inspection(target: PathBuf, source: &PathBuf, metadata: Metadata) -> bool {
+fn do_inspection<M>(target: PathBuf, source: &PathBuf, metadata: Metadata, mode: &M) -> bool
+where
+    M: util::ValueSource,
+{
     if metadata.is_dir() {
         // Get the size of the directory and all its contents
         println!(
@@ -262,10 +268,10 @@ fn do_inspection(target: PathBuf, source: &PathBuf, metadata: Metadata) -> bool 
             println!("Error reading {}", source.display());
         }
     }
-    !util::prompt_yes(format!(
-        "Send {} to the graveyard?",
-        target.to_str().unwrap()
-    ))
+    !util::prompt_yes(
+        format!("Send {} to the graveyard?", target.to_str().unwrap()),
+        mode,
+    )
 }
 
 /// Write deletion history to record
@@ -291,7 +297,10 @@ where
     Ok(())
 }
 
-pub fn bury<S: AsRef<Path>, D: AsRef<Path>>(source: S, dest: D) -> Result<(), Error> {
+pub fn bury<S: AsRef<Path>, D: AsRef<Path>, M>(source: S, dest: D, mode: &M) -> Result<(), Error>
+where
+    M: util::ValueSource,
+{
     let (source, dest) = (source.as_ref(), dest.as_ref());
     // Try a simple rename, which will only work within the same mount point.
     // Trying to rename across filesystems will throw errno 18.
@@ -337,7 +346,7 @@ pub fn bury<S: AsRef<Path>, D: AsRef<Path>>(source: S, dest: D) -> Result<(), Er
                     )
                 })?;
             } else {
-                copy_file(entry.path(), dest.join(orphan)).map_err(|e| {
+                copy_file(entry.path(), dest.join(orphan), mode).map_err(|e| {
                     Error::new(
                         e.kind(),
                         format!(
@@ -356,7 +365,7 @@ pub fn bury<S: AsRef<Path>, D: AsRef<Path>>(source: S, dest: D) -> Result<(), Er
             )
         })?;
     } else {
-        copy_file(source, dest).map_err(|e| {
+        copy_file(source, dest, mode).map_err(|e| {
             Error::new(
                 e.kind(),
                 format!(
@@ -377,7 +386,10 @@ pub fn bury<S: AsRef<Path>, D: AsRef<Path>>(source: S, dest: D) -> Result<(), Er
     Ok(())
 }
 
-fn copy_file<S: AsRef<Path>, D: AsRef<Path>>(source: S, dest: D) -> Result<(), Error> {
+fn copy_file<S: AsRef<Path>, D: AsRef<Path>, M>(source: S, dest: D, mode: &M) -> Result<(), Error>
+where
+    M: util::ValueSource,
+{
     let (source, dest) = (source.as_ref(), dest.as_ref());
     let metadata = fs::symlink_metadata(source)?;
     let filetype = metadata.file_type();
@@ -388,7 +400,7 @@ fn copy_file<S: AsRef<Path>, D: AsRef<Path>>(source: S, dest: D) -> Result<(), E
             source.display(),
             util::humanize_bytes(metadata.len())
         );
-        if util::prompt_yes("Permanently delete this file instead?") {
+        if util::prompt_yes("Permanently delete this file instead?", mode) {
             return Ok(());
         }
     }
@@ -407,7 +419,7 @@ fn copy_file<S: AsRef<Path>, D: AsRef<Path>>(source: S, dest: D) -> Result<(), E
     } else if let Err(e) = fs::copy(source, dest) {
         // Special file: Try copying it as normal, but this probably won't work
         println!("Non-regular file or directory: {}", source.display());
-        if !util::prompt_yes("Permanently delete the file?") {
+        if !util::prompt_yes("Permanently delete the file?", mode) {
             return Err(e);
         }
         // Create a dummy file to act as a marker in the graveyard

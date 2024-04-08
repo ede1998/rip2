@@ -22,13 +22,33 @@ pub fn get_user() -> String {
     env::var("USER").unwrap_or_else(|_| String::from("unknown"))
 }
 
+// Allows injection of test-specific behavior
+pub trait ValueSource {
+    fn is_test(&self) -> bool;
+}
+
+pub struct ProductionSource;
+impl ValueSource for ProductionSource {
+    fn is_test(&self) -> bool {
+        false
+    }
+}
+
 /// Prompt for user input, returning True if the first character is 'y' or 'Y'
-pub fn prompt_yes<T: AsRef<str>>(prompt: T) -> bool {
+pub fn prompt_yes<T: AsRef<str>, M>(prompt: T, source: &M) -> bool
+where
+    M: ValueSource,
+{
     print!("{} (y/N) ", prompt.as_ref());
     if io::stdout().flush().is_err() {
         // If stdout wasn't flushed properly, fallback to println
         println!("{} (y/N)", prompt.as_ref());
     }
+
+    if source.is_test() {
+        return true;
+    }
+
     let stdin = BufReader::new(io::stdin());
     stdin
         .bytes()
