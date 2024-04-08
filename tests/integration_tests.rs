@@ -132,6 +132,19 @@ fn cache_and_remove_env_vars() -> [Option<String>; 2] {
     })
 }
 
+fn restore_env_vars(default_env_vars: [Option<String>; 2]) {
+    // Iterate over the default env vars and restore them
+    ENV_VARS
+        .iter()
+        .zip(default_env_vars.iter())
+        .for_each(|(key, value)| {
+            env::remove_var(key);
+            if let Some(value) = value {
+                env::set_var(key, value);
+            }
+        });
+}
+
 /// Test that we can set the graveyard from different env variables
 #[rstest]
 #[case::env_graveyard("GRAVEYARD")]
@@ -166,16 +179,6 @@ fn test_graveyard_env(#[case] env_var: &str) {
     let restored_data = fs::read_to_string(expected_graveyard_path).unwrap();
     assert_eq!(restored_data, test_data.data);
 
-    // Iterate over the default env vars and restore them
-    ENV_VARS
-        .iter()
-        .zip(default_env_vars.iter())
-        .for_each(|(key, value)| {
-            env::remove_var(key);
-            if let Some(value) = value {
-                env::set_var(key, value);
-            }
-        });
-
+    restore_env_vars(default_env_vars);
     test_env.teardown();
 }
