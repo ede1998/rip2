@@ -23,8 +23,10 @@ time = "0.1"
 error-chain = "0.12"
 
 [dev-dependencies]
+lazy_static = "1.4"
 rand = "0.8"
 rstest = "0.18"
+tempfile = "3"
 
 [profile.release]
 opt-level = "s"

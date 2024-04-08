@@ -22,13 +22,34 @@ pub fn get_user() -> String {
     env::var("USER").unwrap_or_else(|_| String::from("unknown"))
 }
 
+// Allows injection of test-specific behavior
+pub trait TestingMode {
+    fn is_test(&self) -> bool;
+}
+
+pub struct ProductionMode;
+impl TestingMode for ProductionMode {
+    fn is_test(&self) -> bool {
+        false
+    }
+}
+
 /// Prompt for user input, returning True if the first character is 'y' or 'Y'
-pub fn prompt_yes<T: AsRef<str>>(prompt: T) -> bool {
+pub fn prompt_yes<T, M>(prompt: T, source: &M) -> bool
+where
+    T: AsRef<str>,
+    M: TestingMode,
+{
     print!("{} (y/N) ", prompt.as_ref());
     if io::stdout().flush().is_err() {
         // If stdout wasn't flushed properly, fallback to println
         println!("{} (y/N)", prompt.as_ref());
     }
+
+    if source.is_test() {
+        return true;
+    }
+
     let stdin = BufReader::new(io::stdin());
     stdin
         .bytes()
@@ -54,14 +75,10 @@ pub fn humanize_bytes(bytes: u64) -> String {
     let pair = values
         .iter()
         .enumerate()
-        .take_while(|x| bytes as usize / (1000 as usize).pow(x.0 as u32) > 10)
+        .take_while(|x| bytes as usize / (1000_usize).pow(x.0 as u32) > 10)
         .last();
     if let Some((i, unit)) = pair {
-        format!(
-            "{} {}",
-            bytes as usize / (1000 as usize).pow(i as u32),
-            unit
-        )
+        format!("{} {}", bytes as usize / (1000_usize).pow(i as u32), unit)
     } else {
         format!("{} {}", bytes, values[0])
     }
