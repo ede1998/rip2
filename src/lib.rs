@@ -214,7 +214,7 @@ pub fn run<M: util::TestingMode>(cli: Args, mode: M) -> Result<(), Error> {
             }
         }
     } else {
-        let _ = Args::command().print_help();
+        Args::command().print_help()?;
     }
 
     Ok(())
