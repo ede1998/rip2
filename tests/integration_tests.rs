@@ -1,7 +1,7 @@
 use rand::distributions::Alphanumeric;
 use rand::Rng;
-use rip::args::Args;
-use rip::{self, util};
+use rip2::args::Args;
+use rip2::{self, util};
 use rstest::rstest;
 use std::env;
 use std::fs::{self, File};
@@ -89,7 +89,7 @@ fn test_bury_unbury(#[case] decompose: bool, #[case] inspect: bool) {
     let expected_graveyard_path =
         util::join_absolute(&test_env.graveyard, test_data.path.canonicalize().unwrap());
 
-    rip::run(
+    rip2::run(
         Args {
             targets: [test_data.path.clone()].to_vec(),
             graveyard: Some(test_env.graveyard.clone()),
@@ -111,7 +111,7 @@ fn test_bury_unbury(#[case] decompose: bool, #[case] inspect: bool) {
     let restored_data_from_grave = fs::read_to_string(&expected_graveyard_path).unwrap();
     assert_eq!(restored_data_from_grave, test_data.data);
 
-    rip::run(
+    rip2::run(
         Args {
             graveyard: Some(test_env.graveyard.clone()),
             decompose,
@@ -184,7 +184,7 @@ fn test_env(#[case] env_var: &str) {
     let graveyard = test_env.graveyard.clone();
     env::set_var(env_var, graveyard);
 
-    rip::run(
+    rip2::run(
         Args {
             targets: [test_data.path.clone()].to_vec(),
             // We don't set the graveyard here!
@@ -221,7 +221,7 @@ fn test_duplicate_file(#[case] in_folder: bool) {
     let expected_graveyard_path1 =
         util::join_absolute(&test_env.graveyard, test_data1.path.canonicalize().unwrap());
 
-    rip::run(
+    rip2::run(
         Args {
             targets: [if in_folder {
                 test_data1.path.parent().unwrap().to_path_buf()
@@ -264,7 +264,7 @@ fn test_duplicate_file(#[case] in_folder: bool) {
         }),
     );
 
-    rip::run(
+    rip2::run(
         Args {
             targets: [if in_folder {
                 test_data2.path.parent().unwrap().to_path_buf()

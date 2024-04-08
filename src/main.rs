@@ -2,7 +2,7 @@ use clap::{CommandFactory, Parser, ValueEnum};
 use clap_complete::{generate, Shell};
 use clap_complete_nushell::Nushell;
 
-use rip::{args, util};
+use rip2::{args, util};
 use std::io::stdout;
 use std::process::ExitCode;
 
@@ -23,7 +23,7 @@ fn main() -> ExitCode {
         return ExitCode::SUCCESS;
     }
 
-    if let Err(ref e) = rip::run(cli, util::ProductionMode) {
+    if let Err(ref e) = rip2::run(cli, util::ProductionMode) {
         println!("Exception: {}", e);
         return ExitCode::FAILURE;
     }
