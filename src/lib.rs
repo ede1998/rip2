@@ -193,22 +193,18 @@ pub fn run(cli: Args, mode: impl util::TestingMode, stream: &mut impl Write) -> 
                     }
                 };
 
-                {
-                    let res = move_file(source, dest, &mode, stream).map_err(|e| {
-                        fs::remove_dir_all(dest).ok();
-                        e
-                    });
-                    if let Err(e) = res {
-                        return Err(Error::new(e.kind(), "Failed to bury file"));
-                    }
-                }
+                move_file(source, dest, &mode, stream).map_err(|e| {
+                    fs::remove_dir_all(dest).ok();
+                    Error::new(e.kind(), "Failed to bury file")
+                })?;
+
                 // Clean up any partial buries due to permission error
-                if let Err(e) = write_log(source, dest, record) {
-                    return Err(Error::new(
+                write_log(source, dest, record).map_err(|e| {
+                    Error::new(
                         e.kind(),
                         format!("Failed to write record at {}", record.display()),
-                    ));
-                }
+                    )
+                })?;
             } else {
                 return Err(Error::new(
                     ErrorKind::NotFound,
