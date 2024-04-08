@@ -29,7 +29,7 @@ rstest = "0.18"
 tempfile = "3"
 
 [profile.release]
-opt-level = "s"
+opt-level = 3
 
 [[test]]
 name = "integration_tests"
