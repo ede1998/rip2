@@ -222,9 +222,11 @@ fn test_env(#[case] env_var: &str) {
 }
 
 #[rstest]
-#[case(false)]
-#[case::within_folder(true)]
-fn test_duplicate_file(#[case] in_folder: bool) {
+#[case(false, false)]
+#[case::inspect(false, true)]
+#[case::within_folder(true, false)]
+#[case::within_folder_inspect(true, true)]
+fn test_duplicate_file(#[case] in_folder: bool, #[case] inspect: bool) {
     let _env_lock = aquire_lock();
 
     let test_env = TestEnv::new();
@@ -249,12 +251,19 @@ fn test_duplicate_file(#[case] in_folder: bool) {
             }]
             .to_vec(),
             graveyard: Some(test_env.graveyard.clone()),
+            inspect,
             ..Args::default()
         },
         TestMode,
         &mut log,
     )
     .unwrap();
+
+    let log_s = String::from_utf8(log).unwrap();
+    if inspect && in_folder {
+        assert!(log_s.contains("dir: directory"));
+        assert!(log_s.contains("to the graveyard? (y/N)"));
+    }
 
     assert!(expected_graveyard_path1.exists());
 
