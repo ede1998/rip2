@@ -47,7 +47,7 @@ pub fn run(cli: args::Args) -> Result<(), Error> {
     };
 
     if !graveyard.exists() {
-        fs::create_dir(&graveyard)?;
+        fs::create_dir_all(&graveyard)?;
         let metadata = graveyard.metadata()?;
         let mut permissions = metadata.permissions();
         permissions.set_mode(0o700);
