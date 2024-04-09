@@ -128,7 +128,7 @@ If you want to put the graveyard somewhere else (like `~/.local/share/Trash`), y
   1. Alias `rip` to `rip --graveyard ~/.local/share/Trash`
   2. Set the environment variable `$RIP_GRAVEYARD` to `~/.local/share/Trash`.
 
-This can be a good idea because if the graveyard is mounted on an in-memory file system (as `/tmp` is in Arch Linux), deleting large files can quickly fill up your RAM.  It's also much slower to move files across file systems, although the delay should be minimal with an SSD.
+This can be a good idea because if the graveyard is mounted on an in-memory file system (as `/tmp` is in Arch Linux), deleting large files can quickly fill up your RAM. It's also much slower to move files across file systems, although the delay should be minimal with an SSD.
 
 **Miscellaneous.**
 
