@@ -126,7 +126,7 @@ If you have `$XDG_DATA_HOME` environment variable set, `rip` will use `$XDG_DATA
 If you want to put the graveyard somewhere else (like `~/.local/share/Trash`), you have two options, in order of precedence:
 
   1. Alias `rip` to `rip --graveyard ~/.local/share/Trash`
-  2. Set the environment variable `$GRAVEYARD` to `~/.local/share/Trash`.
+  2. Set the environment variable `$RIP_GRAVEYARD` to `~/.local/share/Trash`.
 
 This can be a good idea because if the graveyard is mounted on an in-memory file system (as `/tmp` is in Arch Linux), deleting large files can quickly fill up your RAM.  It's also much slower to move files across file systems, although the delay should be minimal with an SSD.
 
