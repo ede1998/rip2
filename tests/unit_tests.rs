@@ -1,6 +1,6 @@
 use rip2::args::{validate_args, Args};
-use rip2::copy_file;
 use rip2::util::TestMode;
+use rip2::{copy_file, move_file};
 use rstest::rstest;
 use std::fs;
 use std::os::unix;
@@ -28,12 +28,13 @@ fn test_validation() {
 }
 
 #[rstest]
-#[case::regular("regular")]
-#[case::big("big")]
-#[case::fifo("fifo")]
-#[case::symlink("symlink")]
-#[case::socket("socket")]
-fn test_filetypes(#[case] file_type: &str) {
+fn test_filetypes(
+    #[values("regular", "big", "fifo", "symlink", "socket")] file_type: &str,
+    #[values(false, true)] copy: bool,
+) {
+    if ["big", "socket"].contains(&file_type) && !copy {
+        return;
+    }
     let tmpdir = tempdir().unwrap();
     let path = PathBuf::from(tmpdir.path());
     let source_path = path.join("test_file");
@@ -68,7 +69,11 @@ fn test_filetypes(#[case] file_type: &str) {
     let mut log = Vec::new();
     let mode = TestMode;
 
-    copy_file(&source_path, &dest_path, &mode, &mut log).unwrap();
+    if copy {
+        copy_file(&source_path, &dest_path, &mode, &mut log).unwrap();
+    } else {
+        move_file(&source_path, &dest_path, &mode, &mut log).unwrap();
+    }
 
     let log_s = String::from_utf8(log).unwrap();
 
