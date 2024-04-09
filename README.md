@@ -15,7 +15,9 @@ This version is a fork-of-a-fork:
     - Added shell completions
     - Added a test suite
     - Added a few unmerged PRs from the original repo
-    - General maintenance, refactoring to modern rust, and optimization
+    - General maintenance:
+        - Bug fix for FIFO file copy not being executed
+        - Refactoring to modern rust
 
 ## Installation
 
