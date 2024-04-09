@@ -36,7 +36,7 @@ pub fn run(cli: Args, mode: impl util::TestingMode, stream: &mut impl Write) -> 
     let graveyard: PathBuf = {
         if let Some(flag) = cli.graveyard {
             flag
-        } else if let Ok(env) = env::var("GRAVEYARD") {
+        } else if let Ok(env) = env::var("RIP_GRAVEYARD") {
             PathBuf::from(env)
         } else if let Ok(mut env) = env::var("XDG_DATA_HOME") {
             if !env.ends_with(std::path::MAIN_SEPARATOR) {

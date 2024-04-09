@@ -142,7 +142,7 @@ fn test_bury_unbury(#[values(false, true)] decompose: bool, #[values(false, true
     }
 }
 
-const ENV_VARS: [&str; 2] = ["GRAVEYARD", "XDG_DATA_HOME"];
+const ENV_VARS: [&str; 2] = ["RIP_GRAVEYARD", "XDG_DATA_HOME"];
 
 // Delete env vars and return them
 // so we can restore them later
@@ -171,7 +171,7 @@ fn restore_env_vars(default_env_vars: [Option<String>; 2]) {
 
 /// Test that we can set the graveyard from different env variables
 #[rstest]
-fn test_env(#[values("GRAVEYARD", "XDG_DATA_HOME")] env_var: &str) {
+fn test_env(#[values("RIP_GRAVEYARD", "XDG_DATA_HOME")] env_var: &str) {
     let _env_lock = aquire_lock();
 
     let default_env_vars = cache_and_remove_env_vars();
