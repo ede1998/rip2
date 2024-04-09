@@ -4,6 +4,7 @@ use rip2::util::TestMode;
 use rstest::rstest;
 use std::fs;
 use std::os::unix;
+use std::os::unix::fs::FileTypeExt;
 use std::os::unix::net::UnixListener;
 use std::path::PathBuf;
 use std::process;
@@ -28,6 +29,7 @@ fn test_validation() {
 
 #[rstest]
 #[case::regular("regular")]
+#[case::big("big")]
 #[case::fifo("fifo")]
 #[case::symlink("symlink")]
 #[case::socket("socket")]
@@ -40,6 +42,11 @@ fn test_filetypes(#[case] file_type: &str) {
     match file_type {
         "regular" => {
             fs::File::create(&source_path).unwrap();
+        }
+        "big" => {
+            let file = fs::File::create(&source_path).unwrap();
+            let len = rip2::BIG_FILE_THRESHOLD + 1;
+            file.set_len(len).unwrap();
         }
         "fifo" => {
             process::Command::new("mkfifo")
@@ -65,7 +72,34 @@ fn test_filetypes(#[case] file_type: &str) {
 
     let log_s = String::from_utf8(log).unwrap();
 
-    if file_type == "socket" {
-        assert!(log_s.contains("Non-regular file or directory:"));
+    // Check logs
+    match file_type {
+        "big" => {
+            assert!(log_s.contains("About to copy a big file"));
+        }
+        "socket" => {
+            assert!(log_s.contains("Non-regular file or directory:"));
+            assert!(log_s.contains("Permanently delete the file?"));
+        }
+        _ => {
+            assert!(log_s.is_empty())
+        }
+    }
+
+    // Check graveyard contents and file type
+    match file_type {
+        "regular" => {
+            assert!(dest_path.is_file());
+        }
+        "big" => {
+            assert!(!dest_path.exists());
+        }
+        "fifo" => {
+            assert!(dest_path.exists());
+            let metadata = fs::symlink_metadata(dest_path).unwrap();
+            let ftype = metadata.file_type();
+            assert!(ftype.is_fifo());
+        }
+        _ => {}
     }
 }

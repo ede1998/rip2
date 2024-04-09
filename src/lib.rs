@@ -412,11 +412,12 @@ pub fn copy_file(
     if filetype.is_file() {
         fs::copy(source, dest)?;
     } else if filetype.is_fifo() {
-        let mode = metadata.permissions().mode();
+        let metadata_mode = metadata.permissions().mode();
         std::process::Command::new("mkfifo")
             .arg(dest)
             .arg("-m")
-            .arg(mode.to_string());
+            .arg(metadata_mode.to_string())
+            .output()?;
     } else if filetype.is_symlink() {
         let target = fs::read_link(source)?;
         std::os::unix::fs::symlink(target, dest)?;

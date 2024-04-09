@@ -366,9 +366,6 @@ fn test_big_file() {
     )
     .unwrap();
 
-    let log_s = String::from_utf8(log).unwrap();
-    assert!(log_s.contains("About to copy a big file"));
-
     // The file should be deleted
     assert!(!test_env.src.join("big_file.txt").exists());
 
