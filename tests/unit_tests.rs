@@ -4,11 +4,13 @@ use rip2::{copy_file, move_file};
 use rstest::rstest;
 use std::fs;
 use std::os::unix;
-use std::os::unix::fs::FileTypeExt;
 use std::os::unix::net::UnixListener;
 use std::path::PathBuf;
 use std::process;
 use tempfile::tempdir;
+
+#[cfg(target_os = "macos")]
+use std::os::unix::fs::FileTypeExt;
 
 #[rstest]
 fn test_validation() {
