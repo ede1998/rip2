@@ -87,18 +87,30 @@ fn test_filetypes(#[case] file_type: &str) {
     }
 
     // Check graveyard contents and file type
+    // let metadata = fs::symlink_metadata(dest_path).unwrap();
+    // let ftype = metadata.file_type();
+    let ftype = fs::symlink_metadata(&dest_path).map(|m| m.file_type());
     match file_type {
         "regular" => {
             assert!(dest_path.is_file());
+            assert!(ftype.unwrap().is_file());
         }
         "big" => {
             assert!(!dest_path.exists());
         }
         "fifo" => {
             assert!(dest_path.exists());
-            let metadata = fs::symlink_metadata(dest_path).unwrap();
-            let ftype = metadata.file_type();
-            assert!(ftype.is_fifo());
+            assert!(ftype.unwrap().is_fifo());
+        }
+        "symlink" => {
+            assert!(dest_path.exists());
+            assert!(ftype.unwrap().is_symlink());
+        }
+        "socket" => {
+            assert!(dest_path.exists());
+            assert!(ftype.unwrap().is_file());
+            let contents = fs::read_to_string(&dest_path).unwrap();
+            assert!(contents.contains("marker for a file that was permanently deleted."));
         }
         _ => {}
     }
