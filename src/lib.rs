@@ -348,7 +348,7 @@ pub fn move_file(
                     )
                 })?;
             } else {
-                copy_file(entry.path(), dest.join(orphan), mode, stream).map_err(|e| {
+                copy_file(entry.path(), &dest.join(orphan), mode, stream).map_err(|e| {
                     Error::new(
                         e.kind(),
                         format!(
@@ -388,13 +388,12 @@ pub fn move_file(
     Ok(())
 }
 
-fn copy_file(
-    source: impl AsRef<Path>,
-    dest: impl AsRef<Path>,
+pub fn copy_file(
+    source: &Path,
+    dest: &Path,
     mode: &impl util::TestingMode,
     stream: &mut impl Write,
 ) -> Result<(), Error> {
-    let (source, dest) = (source.as_ref(), dest.as_ref());
     let metadata = fs::symlink_metadata(source)?;
     let filetype = metadata.file_type();
 

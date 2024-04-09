@@ -28,9 +28,16 @@ pub trait TestingMode {
 }
 
 pub struct ProductionMode;
+pub struct TestMode;
+
 impl TestingMode for ProductionMode {
     fn is_test(&self) -> bool {
         false
+    }
+}
+impl TestingMode for TestMode {
+    fn is_test(&self) -> bool {
+        true
     }
 }
 

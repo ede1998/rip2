@@ -1,6 +1,7 @@
 use rand::distributions::Alphanumeric;
 use rand::Rng;
 use rip2::args::Args;
+use rip2::util::TestMode;
 use rip2::{self, util};
 use rstest::rstest;
 use std::env;
@@ -18,13 +19,6 @@ lazy_static! {
 
 fn aquire_lock() -> MutexGuard<'static, ()> {
     GLOBAL_LOCK.lock().unwrap()
-}
-
-struct TestMode;
-impl util::TestingMode for TestMode {
-    fn is_test(&self) -> bool {
-        true
-    }
 }
 
 struct TestEnv {
