@@ -4,6 +4,7 @@ use rip2::util::TestMode;
 use rstest::rstest;
 use std::fs;
 use std::os::unix;
+use std::os::unix::net::UnixListener;
 use std::path::PathBuf;
 use std::process;
 use tempfile::tempdir;
@@ -29,6 +30,7 @@ fn test_validation() {
 #[case::regular("regular")]
 #[case::fifo("fifo")]
 #[case::symlink("symlink")]
+#[case::socket("socket")]
 fn test_filetypes(#[case] file_type: &str) {
     let tmpdir = tempdir().unwrap();
     let path = PathBuf::from(tmpdir.path());
@@ -50,6 +52,9 @@ fn test_filetypes(#[case] file_type: &str) {
             fs::File::create(&target_path).unwrap();
             unix::fs::symlink(&target_path, &source_path).unwrap();
         }
+        "socket" => {
+            UnixListener::bind(&source_path).unwrap();
+        }
         _ => unreachable!(),
     }
 
@@ -57,4 +62,10 @@ fn test_filetypes(#[case] file_type: &str) {
     let mode = TestMode;
 
     copy_file(&source_path, &dest_path, &mode, &mut log).unwrap();
+
+    let log_s = String::from_utf8(log).unwrap();
+
+    if file_type == "socket" {
+        assert!(log_s.contains("Non-regular file or directory:"));
+    }
 }
