@@ -57,14 +57,18 @@ pub fn prompt_yes(
         return Ok(true);
     }
 
-    let stdin = BufReader::new(io::stdin());
-    Ok(stdin
+    Ok(process_in_stream(io::stdin()))
+}
+
+pub fn process_in_stream(in_stream: impl Read) -> bool {
+    let buffered = BufReader::new(in_stream);
+    buffered
         .bytes()
         .next()
         .and_then(|c| c.ok())
         .map(|c| c as char)
         .map(|c| (c == 'y' || c == 'Y'))
-        .unwrap_or(false))
+        .unwrap_or(false)
 }
 
 /// Add a numbered extension to duplicate filenames to avoid overwriting files.

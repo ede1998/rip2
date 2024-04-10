@@ -3,6 +3,7 @@ use rip2::util::TestMode;
 use rip2::{copy_file, move_file};
 use rstest::rstest;
 use std::fs;
+use std::io::Cursor;
 use std::os::unix;
 use std::os::unix::net::UnixListener;
 use std::path::PathBuf;
@@ -124,5 +125,18 @@ fn test_filetypes(
             assert!(contents.contains("marker for a file that was permanently deleted."));
         }
         _ => {}
+    }
+}
+
+#[rstest]
+fn test_prompt_read(#[values("y", "Y", "n", "q")] key: &str) {
+    let input = Cursor::new(key);
+    let result = rip2::util::process_in_stream(input);
+    match key {
+        "y" => assert!(result),
+        "Y" => assert!(result),
+        "n" => assert!(!result),
+        "q" => assert!(!result),
+        _ => unreachable!(),
     }
 }
