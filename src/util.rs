@@ -48,9 +48,9 @@ pub fn prompt_yes(
     stream: &mut impl Write,
 ) -> Result<bool, Error> {
     write!(stream, "{} (y/N) ", prompt.as_ref())?;
-    if io::stdout().flush().is_err() {
+    if stream.flush().is_err() {
         // If stdout wasn't flushed properly, fallback to println
-        println!("{} (y/N)", prompt.as_ref());
+        writeln!(stream, "{} (y/N)", prompt.as_ref())?;
     }
 
     if source.is_test() {
