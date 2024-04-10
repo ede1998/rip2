@@ -129,14 +129,16 @@ fn test_filetypes(
 }
 
 #[rstest]
-fn test_prompt_read(#[values("y", "Y", "n", "q")] key: &str) {
-    let input = Cursor::new(key);
+fn test_prompt_read(
+    #[values(
+        ("y", true),
+        ("Y", true),
+        ("n", false),
+        ("q", false),
+    )]
+    key: (&str, bool),
+) {
+    let input = Cursor::new(key.0);
     let result = rip2::util::process_in_stream(input);
-    match key {
-        "y" => assert!(result),
-        "Y" => assert!(result),
-        "n" => assert!(!result),
-        "q" => assert!(!result),
-        _ => unreachable!(),
-    }
+    assert_eq!(result, key.1)
 }
