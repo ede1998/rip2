@@ -1,14 +1,15 @@
+use assert_cmd::Command;
 use rand::distributions::Alphanumeric;
 use rand::Rng;
 use rip2::args::Args;
 use rip2::util::TestMode;
 use rip2::{self, util};
 use rstest::rstest;
-use std::env;
 use std::fs::{self, File};
 use std::io::Write;
 use std::path::PathBuf;
 use std::sync::{Mutex, MutexGuard};
+use std::{env, ffi, iter};
 use tempfile::{tempdir, TempDir};
 
 use lazy_static::lazy_static;
@@ -365,4 +366,88 @@ fn test_big_file() {
 
     // And not in the graveyard either
     assert!(!expected_graveyard_path.exists());
+}
+
+fn cli_runner<I, S>(args: I, cwd: Option<&PathBuf>) -> Command
+where
+    I: IntoIterator<Item = S>,
+    S: AsRef<ffi::OsStr>,
+{
+    let mut cmd = Command::cargo_bin("rip").unwrap();
+    let mut cmd_ref = &mut cmd;
+    cmd_ref.env_clear();
+    if let Some(cwd) = cwd {
+        cmd_ref.current_dir(cwd);
+    }
+    for arg in args {
+        cmd_ref = cmd_ref.arg(arg);
+    }
+    cmd
+}
+
+/// Basic test of actually running the CLI itself
+#[rstest]
+fn test_cli(#[values("help", "help2", "bury_unbury", "bury_unbury_seance")] scenario: &str) {
+    let _env_lock = aquire_lock();
+    let test_env = TestEnv::new();
+
+    // Early exit for some tests
+    if scenario.starts_with("help") {
+        // Get output
+        let mut cmd = match scenario {
+            "help" => cli_runner(["--help"], None),
+            "help2" => cli_runner(iter::empty::<&str>(), None),
+            _ => unreachable!(),
+        };
+        let output = cmd.output().unwrap();
+        assert!(output.status.success());
+        let output_stdout = String::from_utf8(output.stdout).unwrap();
+        assert!(output_stdout.contains("rip: a safe and ergonomic alternative to rm"));
+        assert!(output_stdout.contains("Usage:"));
+        assert!(output_stdout.contains("Options:"));
+        return;
+    }
+
+    let base_args = vec!["--graveyard", test_env.graveyard.to_str().unwrap()];
+
+    let names = ["test1.txt", "test2.txt", "dir/test.txt"];
+    fs::create_dir_all(test_env.src.join("dir")).unwrap();
+
+    names.map(|name| TestData::new(&test_env, Some(name)));
+    // TODO: Check the data contents
+
+    match scenario {
+        scenario if scenario.starts_with("bury") => {
+            let mut bury_args = base_args.clone();
+            bury_args.extend(names);
+            let mut bury_cmd = cli_runner(&bury_args, Some(&test_env.src));
+            let output_stdout = String::from_utf8(bury_cmd.output().unwrap().stdout).unwrap();
+            assert!(output_stdout.is_empty());
+            // Check only whitespace characters:
+            assert!(output_stdout.chars().all(char::is_whitespace));
+
+            let mut unbury_args = base_args.clone();
+            unbury_args.push("--unbury");
+            if scenario.ends_with("seance") {
+                unbury_args.push("--seance");
+            }
+            let mut unbury_cmd = cli_runner(&unbury_args, Some(&test_env.src));
+            let output_stdout = String::from_utf8(unbury_cmd.output().unwrap().stdout).unwrap();
+            assert!(!output_stdout.is_empty());
+            if scenario.ends_with("seance") {
+                assert!(!names
+                    .map(|name| output_stdout.contains(name))
+                    .iter()
+                    .any(|has_name| !has_name));
+            } else {
+                // Only the last file should be unburied
+                assert!(output_stdout.contains(names[2]));
+                assert!(names
+                    .map(|name| output_stdout.contains(name))
+                    .iter()
+                    .any(|has_name| !has_name));
+            }
+        }
+        _ => unreachable!(),
+    }
 }
