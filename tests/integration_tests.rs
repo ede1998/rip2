@@ -387,7 +387,9 @@ where
 
 /// Basic test of actually running the CLI itself
 #[rstest]
-fn test_cli(#[values("help", "help2", "bury_unbury", "bury_unbury_seance")] scenario: &str) {
+fn test_cli(
+    #[values("help", "help2", "bury_unbury", "bury_seance", "bury_unbury_seance")] scenario: &str,
+) {
     let _env_lock = aquire_lock();
     let test_env = TestEnv::new();
 
@@ -427,16 +429,27 @@ fn test_cli(#[values("help", "help2", "bury_unbury", "bury_unbury_seance")] scen
             assert!(output_stdout.chars().all(char::is_whitespace));
 
             let mut unbury_args = base_args.clone();
-            unbury_args.push("--unbury");
-            if scenario.ends_with("seance") {
+
+            if scenario.contains("unbury") {
+                unbury_args.push("--unbury");
+            }
+            if scenario.contains("seance") {
                 unbury_args.push("--seance");
             }
-            let mut unbury_cmd = cli_runner(&unbury_args, Some(&test_env.src));
-            let output_stdout = String::from_utf8(unbury_cmd.output().unwrap().stdout).unwrap();
+            let mut final_cmd = cli_runner(&unbury_args, Some(&test_env.src));
+            let output_stdout = String::from_utf8(final_cmd.output().unwrap().stdout).unwrap();
             assert!(!output_stdout.is_empty());
-            if scenario.ends_with("seance") {
+            println!("{}", output_stdout);
+            if scenario.contains("seance") {
                 assert!(!names
-                    .map(|name| output_stdout.contains(name))
+                    .map(|name| {
+                        let full_match = if scenario.contains("unbury") {
+                            format!("{} to", name)
+                        } else {
+                            name.to_string()
+                        };
+                        output_stdout.contains(&full_match)
+                    })
                     .iter()
                     .any(|has_name| !has_name));
             } else {
