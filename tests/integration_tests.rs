@@ -385,10 +385,23 @@ where
     cmd
 }
 
+fn quick_cmd_output(cmd: &mut Command) -> String {
+    String::from_utf8(cmd.output().unwrap().stdout).unwrap()
+}
+
 /// Basic test of actually running the CLI itself
 #[rstest]
 fn test_cli(
-    #[values("help", "help2", "bury_unbury", "bury_seance", "bury_unbury_seance")] scenario: &str,
+    #[values(
+        "help",
+        "help2",
+        "bury_unbury",
+        "bury_seance",
+        "bury_unbury_seance",
+        "inspect",
+        "inspect_no"
+    )]
+    scenario: &str,
 ) {
     let _env_lock = aquire_lock();
     let test_env = TestEnv::new();
@@ -419,11 +432,36 @@ fn test_cli(
     // TODO: Check the data contents
 
     match scenario {
+        scenario if scenario.starts_with("inspect") => {
+            let mut args = base_args.clone();
+            args.push("--inspect");
+            args.push(names[0]);
+            let mut cmd = cli_runner(args, Some(&test_env.src));
+            match scenario {
+                "inspect" => cmd.write_stdin("y"),
+                "inspect_no" => cmd.write_stdin("n"),
+                _ => unreachable!(),
+            };
+
+            let output = cmd.output().unwrap();
+            let output_stdout = String::from_utf8(output.stdout).unwrap();
+
+            assert!(
+                output_stdout.contains(format!("{} to the graveyard? (y/N)", names[0]).as_str())
+            );
+
+            // One should still have the file, and the other should not:
+            match scenario {
+                "inspect" => assert!(!test_env.src.join(names[0]).exists()),
+                "inspect_no" => assert!(test_env.src.join(names[0]).exists()),
+                _ => unreachable!(),
+            }
+        }
         scenario if scenario.starts_with("bury") => {
             let mut bury_args = base_args.clone();
             bury_args.extend(names);
             let mut bury_cmd = cli_runner(&bury_args, Some(&test_env.src));
-            let output_stdout = String::from_utf8(bury_cmd.output().unwrap().stdout).unwrap();
+            let output_stdout = quick_cmd_output(&mut bury_cmd);
             assert!(output_stdout.is_empty());
             // Check only whitespace characters:
             assert!(output_stdout.chars().all(char::is_whitespace));
@@ -437,9 +475,8 @@ fn test_cli(
                 unbury_args.push("--seance");
             }
             let mut final_cmd = cli_runner(&unbury_args, Some(&test_env.src));
-            let output_stdout = String::from_utf8(final_cmd.output().unwrap().stdout).unwrap();
+            let output_stdout = quick_cmd_output(&mut final_cmd);
             assert!(!output_stdout.is_empty());
-            println!("{}", output_stdout);
             if scenario.contains("seance") {
                 assert!(!names
                     .map(|name| {
