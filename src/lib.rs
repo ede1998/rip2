@@ -194,10 +194,11 @@ fn bury_target(
     debug!("Found metadata for target: {:?}", metadata);
     // Canonicalize the path unless it's a symlink
     let source = &if !metadata.file_type().is_symlink() {
-        cwd.join(target)
-            .canonicalize()
+        debug!("Not a symlink, canonicalizing path");
+        dunce::canonicalize(cwd.join(target))
             .map_err(|e| Error::new(e.kind(), "Failed to canonicalize path"))?
     } else {
+        debug!("Symlink detected, using path as is");
         cwd.join(target)
     };
     debug!("Using canonicalized path for target: {}", source.display());

@@ -81,8 +81,10 @@ fn test_bury_unbury(#[values(false, true)] decompose: bool, #[values(false, true
     let test_env = TestEnv::new();
     let test_data = TestData::new(&test_env, None);
     // And is now in the graveyard
-    let expected_graveyard_path =
-        util::join_absolute(&test_env.graveyard, test_data.path.canonicalize().unwrap());
+    let expected_graveyard_path = util::join_absolute(
+        &test_env.graveyard,
+        dunce::canonicalize(&test_data.path).unwrap(),
+    );
 
     let mut log = Vec::new();
     rip2::run(
@@ -187,8 +189,10 @@ fn test_env(#[values("RIP_GRAVEYARD", "XDG_DATA_HOME")] env_var: &str) {
     } else {
         test_env.graveyard.clone()
     };
-    let expected_graveyard_path =
-        util::join_absolute(modified_graveyard, test_data.path.canonicalize().unwrap());
+    let expected_graveyard_path = util::join_absolute(
+        modified_graveyard,
+        dunce::canonicalize(&test_data.path).unwrap(),
+    );
 
     let graveyard = test_env.graveyard.clone();
     env::set_var(env_var, graveyard);
@@ -230,8 +234,10 @@ fn test_duplicate_file(
     } else {
         TestData::new(&test_env, Some(&PathBuf::from("file.txt")))
     };
-    let expected_graveyard_path1 =
-        util::join_absolute(&test_env.graveyard, test_data1.path.canonicalize().unwrap());
+    let expected_graveyard_path1 = util::join_absolute(
+        &test_env.graveyard,
+        dunce::canonicalize(&test_data1.path).unwrap(),
+    );
 
     let mut log = Vec::new();
     rip2::run(
@@ -269,12 +275,11 @@ fn test_duplicate_file(
         TestData::new(&test_env, Some(&PathBuf::from("file.txt")))
     };
 
-    let path_within_graveyard = (if in_folder {
+    let path_within_graveyard = dunce::canonicalize(if in_folder {
         test_data2.path.parent().unwrap().to_path_buf()
     } else {
         test_data2.path.clone()
     })
-    .canonicalize()
     .unwrap();
 
     let expected_graveyard_path2 = util::join_absolute(
@@ -349,8 +354,10 @@ fn test_big_file() {
     let file = fs::File::create(&big_file_path).unwrap();
     file.set_len(size).unwrap();
 
-    let expected_graveyard_path =
-        util::join_absolute(&test_env.graveyard, big_file_path.canonicalize().unwrap());
+    let expected_graveyard_path = util::join_absolute(
+        &test_env.graveyard,
+        dunce::canonicalize(big_file_path).unwrap(),
+    );
 
     let mut log = Vec::new();
     rip2::run(
