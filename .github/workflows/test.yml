@@ -30,6 +30,7 @@ jobs:
         os:
           - ubuntu-latest
           - macOS-latest
+          - windows-latest
         rust-version:
           - stable
 
