@@ -79,6 +79,7 @@ pub fn run(cli: Args, mode: impl util::TestingMode, stream: &mut impl Write) -> 
     let record = Record::new(graveyard);
     let cwd = &env::current_dir()?;
     debug!("Current working directory: {}", cwd.display());
+    debug!("Record path: {:?}", record);
 
     if let Some(mut graves_to_exhume) = cli.unbury {
         // Vector to hold the grave path of items we want to unbury.
@@ -204,12 +205,17 @@ fn bury_target(
     debug!("Using canonicalized path for target: {}", source.display());
 
     if inspect {
+        debug!("Performing inspection before bury");
         let moved_to_graveyard = do_inspection(target, source, metadata, mode, stream)?;
         if moved_to_graveyard {
             return Ok(());
         }
     }
 
+    println!(
+        "Checking if {} is already in the graveyard",
+        source.display()
+    );
     // If rip is called on a file already in the graveyard, prompt
     // to permanently delete it instead.
     if source.starts_with(graveyard) {
@@ -230,6 +236,7 @@ fn bury_target(
         }
     }
 
+    debug!("Building destination path in graveyard");
     let dest: &Path = &{
         let dest = util::join_absolute(graveyard, source);
         // Resolve a name conflict if necessary
@@ -239,6 +246,7 @@ fn bury_target(
             dest
         }
     };
+    debug!("Will move target to: {}", dest.display());
 
     move_target(source, dest, mode, stream).map_err(|e| {
         fs::remove_dir_all(dest).ok();

@@ -29,6 +29,7 @@ impl RecordItem<'_> {
     }
 }
 
+#[derive(Debug)]
 pub struct Record {
     path: PathBuf,
 }
