@@ -6,7 +6,10 @@ use std::io::{self, BufReader, Read, Write};
 use std::path::{Component, Path, PathBuf};
 
 #[cfg(not(feature = "testing"))]
-use log::debug;
+macro_rules! debug {
+    // Empty macro regardless of arguments
+    ($($arg:tt)*) => {};
+}
 
 #[cfg(feature = "testing")]
 use std::println as debug;

@@ -6,7 +6,10 @@ use std::{env, fs};
 use walkdir::WalkDir;
 
 #[cfg(not(feature = "testing"))]
-use log::debug;
+macro_rules! debug {
+    // Empty macro regardless of arguments
+    ($($arg:tt)*) => {};
+}
 
 #[cfg(feature = "testing")]
 use std::println as debug;
@@ -104,6 +107,7 @@ pub fn run(cli: Args, mode: impl util::TestingMode, stream: &mut impl Write) -> 
             let gravepath = util::join_absolute(graveyard, cwd)
                 .to_string_lossy()
                 .into_owned();
+            debug!("Checking for graves in {}", gravepath);
             for grave in record.seance(gravepath) {
                 graves_to_exhume.push(grave);
             }
