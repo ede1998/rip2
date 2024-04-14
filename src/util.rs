@@ -3,6 +3,7 @@ use std::fs;
 use std::hash::{DefaultHasher, Hash, Hasher};
 use std::io::Error;
 use std::io::{self, BufReader, Read, Write};
+use std::path::Prefix::Disk;
 use std::path::{Component, Path, PathBuf};
 
 #[cfg(not(feature = "testing"))]
@@ -13,11 +14,21 @@ macro_rules! debug {
 
 #[cfg(feature = "testing")]
 use std::println as debug;
+use std::str::from_utf8;
 
-fn hash_component(prefix_component: &Component) -> String {
+fn hash_component(c: &Component) -> String {
     let mut hasher = DefaultHasher::new();
-    prefix_component.hash(&mut hasher);
+    c.hash(&mut hasher);
     format!("{:x}", hasher.finish())
+}
+fn str_component(c: &Component) -> String {
+    match c {
+        Component::Prefix(prefix) => match prefix.kind() {
+            Disk(disk) => format!("DISK_{}", from_utf8(&[disk]).unwrap()),
+            _ => hash_component(c),
+        },
+        _ => hash_component(c),
+    }
 }
 
 /// Concatenate two paths, even if the right argument is an absolute path.
@@ -45,7 +56,7 @@ pub fn join_absolute<A: AsRef<Path>, B: AsRef<Path>>(left: A, right: B) -> PathB
                     // Hash the prefix component.
                     // We do this because there are many ways to get prefix components
                     // on Windows, so its safer to simply hash it.
-                    result.push(hash_component(&c));
+                    result.push(str_component(&c));
                 }
                 _ => {
                     result.push(c);
