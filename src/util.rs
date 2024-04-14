@@ -1,7 +1,7 @@
+use std::collections::hash_map::DefaultHasher;
 use std::env;
 use std::fs;
 use std::hash::{Hash, Hasher};
-use std::collections::hash_map::DefaultHasher;
 use std::io::{self, BufReader, Error, Read, Write};
 use std::path::Prefix::Disk;
 use std::path::{Component, Path, PathBuf};
@@ -24,6 +24,7 @@ fn hash_component(c: &Component) -> String {
 fn str_component(c: &Component) -> String {
     match c {
         Component::Prefix(prefix) => match prefix.kind() {
+            // C:\\ is the most common, so we just make a readable name for it.
             Disk(disk) => format!("DISK_{}", from_utf8(&[disk]).unwrap()),
             _ => hash_component(c),
         },
