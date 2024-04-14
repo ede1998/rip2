@@ -73,6 +73,8 @@ jobs:
         id: release
         with:
           release-type: rust
+          bump-patch-for-minor-pre-major: true
+          bump-minor-pre-major: true
 
   publish:
     name: Publish to crates.io
