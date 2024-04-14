@@ -1,10 +1,10 @@
 use std::env;
 use std::fs;
 use std::hash::{DefaultHasher, Hash, Hasher};
-use std::io::Error;
-use std::io::{self, BufReader, Read, Write};
+use std::io::{self, BufReader, Error, Read, Write};
 use std::path::Prefix::Disk;
 use std::path::{Component, Path, PathBuf};
+use std::str::from_utf8;
 
 #[cfg(not(feature = "testing"))]
 macro_rules! debug {
@@ -14,7 +14,6 @@ macro_rules! debug {
 
 #[cfg(feature = "testing")]
 use std::println as debug;
-use std::str::from_utf8;
 
 fn hash_component(c: &Component) -> String {
     let mut hasher = DefaultHasher::new();
