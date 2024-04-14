@@ -1,17 +1,53 @@
 use std::env;
 use std::fs;
+use std::hash::{DefaultHasher, Hash, Hasher};
 use std::io::Error;
 use std::io::{self, BufReader, Read, Write};
-use std::path::{Path, PathBuf};
+use std::path::{Component, Path, PathBuf};
+
+use log::debug;
+
+fn hash_component(prefix_component: &Component) -> String {
+    let mut hasher = DefaultHasher::new();
+    prefix_component.hash(&mut hasher);
+    format!("{:x}", hasher.finish())
+}
 
 /// Concatenate two paths, even if the right argument is an absolute path.
 pub fn join_absolute<A: AsRef<Path>, B: AsRef<Path>>(left: A, right: B) -> PathBuf {
     let (left, right) = (left.as_ref(), right.as_ref());
-    left.join(if let Ok(stripped) = right.strip_prefix("/") {
+    debug!("Joining {:?} and {:?}", left, right);
+
+    #[cfg(unix)]
+    let result = left.join(if let Ok(stripped) = right.strip_prefix("/") {
         stripped
     } else {
         right
-    })
+    });
+
+    #[cfg(target_os = "windows")]
+    let result = {
+        let mut result = left.iter().collect::<PathBuf>();
+        for c in right.components() {
+            match c {
+                Component::RootDir => {}
+                Component::Prefix(_) => {
+                    // Hash the prefix component.
+                    // We do this because there are many ways to get prefix components
+                    // on Windows, so its safer to simply hash it.
+                    result.push(hash_component(&c));
+                }
+                _ => {
+                    result.push(c);
+                }
+            }
+        }
+        debug!("Components: {:?}", result);
+        result.as_path().to_path_buf()
+    };
+
+    debug!("Result: {:?}", result);
+    result
 }
 
 pub fn symlink_exists<P: AsRef<Path>>(path: P) -> bool {

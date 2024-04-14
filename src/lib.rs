@@ -236,7 +236,7 @@ fn bury_target(
         }
     }
 
-    debug!("Building destination path in graveyard");
+    debug!("Calculating destination path in graveyard");
     let dest: &Path = &{
         let dest = util::join_absolute(graveyard, source);
         // Resolve a name conflict if necessary
