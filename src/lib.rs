@@ -10,7 +10,7 @@ use walkdir::WalkDir;
 use std::os::unix::fs::{symlink, FileTypeExt, PermissionsExt};
 
 #[cfg(target_os = "windows")]
-use std::os::windows::fs::{symlink, FileTypeExt};
+use std::os::windows::fs::symlink_file as symlink;
 
 pub mod args;
 pub mod completions;
@@ -51,10 +51,10 @@ pub fn run(cli: Args, mode: impl util::TestingMode, stream: &mut impl Write) -> 
 
     if !graveyard.exists() {
         fs::create_dir_all(graveyard)?;
-        let metadata = graveyard.metadata()?;
 
         #[cfg(unix)]
         {
+            let metadata = graveyard.metadata()?;
             let mut permissions = metadata.permissions();
             permissions.set_mode(0o700);
         }

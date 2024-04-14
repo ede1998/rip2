@@ -11,14 +11,14 @@ use tempfile::tempdir;
 #[cfg(unix)]
 use std::os::unix::fs::symlink;
 
+#[cfg(target_os = "windows")]
+use std::os::windows::fs::symlink_file as symlink;
+
 #[cfg(unix)]
 use std::os::unix::net::UnixListener;
 
 #[cfg(target_os = "macos")]
 use std::os::unix::fs::FileTypeExt;
-
-#[cfg(target_os = "windows")]
-use std::os::windows::fs::symlink;
 
 #[rstest]
 fn test_validation() {
