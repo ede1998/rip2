@@ -175,7 +175,9 @@ fn test_completions(
             assert!(result.is_err());
             let err_msg = result.unwrap_err().to_string();
             assert!(err_msg.contains("Invalid shell specification: fake"));
-            assert!(err_msg.contains("Available shells: bash, elvish, fish, powershell, zsh, nushell"));
+            assert!(
+                err_msg.contains("Available shells: bash, elvish, fish, powershell, zsh, nushell")
+            );
         }
         _ => {}
     }

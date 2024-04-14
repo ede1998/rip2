@@ -21,7 +21,12 @@ fn main() -> ExitCode {
         None => {}
     }
 
-    if let Err(ref e) = rip2::run(cli, mode, &mut stream) {
+    ////////////////////////////////////////////////////////////
+    // Main code ///////////////////////////////////////////////
+    let result = rip2::run(cli, mode, &mut stream);
+    ////////////////////////////////////////////////////////////
+
+    if let Err(ref e) = result {
         println!("Exception: {}", e);
         return ExitCode::FAILURE;
     }
