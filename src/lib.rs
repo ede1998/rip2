@@ -10,7 +10,6 @@ macro_rules! debug {
     // Empty macro regardless of arguments
     ($($arg:tt)*) => {};
 }
-
 #[cfg(feature = "testing")]
 use std::println as debug;
 

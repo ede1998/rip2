@@ -3,6 +3,14 @@ use std::io::{BufRead, BufReader, Error, ErrorKind, Write};
 use std::path::{Path, PathBuf};
 use std::{fs, io};
 
+#[cfg(not(feature = "testing"))]
+macro_rules! debug {
+    // Empty macro regardless of arguments
+    ($($arg:tt)*) => {};
+}
+#[cfg(feature = "testing")]
+use std::println as debug;
+
 use crate::util;
 
 const RECORD: &str = ".record";
@@ -135,6 +143,10 @@ impl Record {
     /// Write deletion history to record
     pub fn write_log(&self, source: impl AsRef<Path>, dest: impl AsRef<Path>) -> io::Result<()> {
         let (source, dest) = (source.as_ref(), dest.as_ref());
+        debug!(
+            "->run->bury->target->move->record: Opening record file at {}",
+            &self.path.display()
+        );
         let mut record_file = fs::OpenOptions::new()
             .create(true)
             .append(true)
@@ -152,6 +164,11 @@ impl Record {
                 format!("Failed to write record at {}", &self.path.display()),
             )
         })?;
+        debug!(
+            "->run->bury->target->move->record: Wrote to record: {} -> {}",
+            source.display(),
+            dest.display(),
+        );
 
         Ok(())
     }
