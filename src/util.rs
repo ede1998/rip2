@@ -1,6 +1,7 @@
 use std::env;
 use std::fs;
-use std::hash::{DefaultHasher, Hash, Hasher};
+use std::hash::{Hash, Hasher};
+use std::collections::hash_map::DefaultHasher;
 use std::io::{self, BufReader, Error, Read, Write};
 use std::path::Prefix::Disk;
 use std::path::{Component, Path, PathBuf};
@@ -38,32 +39,21 @@ pub fn join_absolute<A: AsRef<Path>, B: AsRef<Path>>(left: A, right: B) -> PathB
         left, right
     );
 
-    #[cfg(unix)]
-    let result = left.join(if let Ok(stripped) = right.strip_prefix("/") {
-        stripped
-    } else {
-        right
-    });
-
-    #[cfg(target_os = "windows")]
-    let result = {
-        let mut result = left.iter().collect::<PathBuf>();
-        for c in right.components() {
-            match c {
-                Component::RootDir => {}
-                Component::Prefix(_) => {
-                    // Hash the prefix component.
-                    // We do this because there are many ways to get prefix components
-                    // on Windows, so its safer to simply hash it.
-                    result.push(str_component(&c));
-                }
-                _ => {
-                    result.push(c);
-                }
+    let mut result = left.to_path_buf();
+    for c in right.components() {
+        match c {
+            Component::RootDir => {}
+            Component::Prefix(_) => {
+                // Hash the prefix component.
+                // We do this because there are many ways to get prefix components
+                // on Windows, so its safer to simply hash it.
+                result.push(str_component(&c));
+            }
+            _ => {
+                result.push(c);
             }
         }
-        result.as_path().to_path_buf()
-    };
+    }
 
     debug!("->run->____->______->canonicalize: Result: {:?}", result);
     result
