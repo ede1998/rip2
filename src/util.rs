@@ -23,7 +23,10 @@ fn hash_component(prefix_component: &Component) -> String {
 /// Concatenate two paths, even if the right argument is an absolute path.
 pub fn join_absolute<A: AsRef<Path>, B: AsRef<Path>>(left: A, right: B) -> PathBuf {
     let (left, right) = (left.as_ref(), right.as_ref());
-    debug!("Joining {:?} and {:?}", left, right);
+    debug!(
+        "->run->____->______->canonicalize: Joining {:?} and {:?}",
+        left, right
+    );
 
     #[cfg(unix)]
     let result = left.join(if let Ok(stripped) = right.strip_prefix("/") {
@@ -52,7 +55,7 @@ pub fn join_absolute<A: AsRef<Path>, B: AsRef<Path>>(left: A, right: B) -> PathB
         result.as_path().to_path_buf()
     };
 
-    debug!("Result: {:?}", result);
+    debug!("->run->____->______->canonicalize: Result: {:?}", result);
     result
 }
 

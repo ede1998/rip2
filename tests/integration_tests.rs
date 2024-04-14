@@ -533,7 +533,11 @@ fn test_cli(
             }
             let mut final_cmd = cli_runner(&unbury_args, Some(&test_env.src));
             let output_stdout = quick_cmd_output(&mut final_cmd);
-            assert!(!output_stdout.is_empty());
+            assert!(
+                !output_stdout.is_empty(),
+                "Output was empty for scenario: {}",
+                scenario
+            );
             if scenario.contains("seance") {
                 assert!(!names
                     .iter()
