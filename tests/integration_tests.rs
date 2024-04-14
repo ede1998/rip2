@@ -53,15 +53,18 @@ struct TestData {
 }
 
 impl TestData {
-    fn new(test_env: &TestEnv, filename: Option<&str>) -> TestData {
+    fn new(test_env: &TestEnv, filename: Option<&PathBuf>) -> TestData {
         let data = rand::thread_rng()
             .sample_iter(&Alphanumeric)
             .take(100)
             .map(char::from)
             .collect::<String>();
 
-        let taken_filename = filename.unwrap_or("test_file.txt");
-        let path = test_env.src.join(taken_filename);
+        let path = if let Some(taken_filename) = filename {
+            test_env.src.join(taken_filename)
+        } else {
+            test_env.src.join("test_file.txt")
+        };
         let mut file = fs::File::create(&path).unwrap();
         file.write_all(data.as_bytes()).unwrap();
 
@@ -223,9 +226,9 @@ fn test_duplicate_file(
     // Bury the first file
     let test_data1 = if in_folder {
         fs::create_dir(test_env.src.join("dir")).unwrap();
-        TestData::new(&test_env, Some("dir/file.txt"))
+        TestData::new(&test_env, Some(&PathBuf::from("dir").join("file.txt")))
     } else {
-        TestData::new(&test_env, Some("file.txt"))
+        TestData::new(&test_env, Some(&PathBuf::from("file.txt")))
     };
     let expected_graveyard_path1 =
         util::join_absolute(&test_env.graveyard, test_data1.path.canonicalize().unwrap());
@@ -261,9 +264,9 @@ fn test_duplicate_file(
     let test_data2 = if in_folder {
         // TODO: Why do we need to create the whole dir?
         fs::create_dir_all(test_env.src.join("dir")).unwrap();
-        TestData::new(&test_env, Some("dir/file.txt"))
+        TestData::new(&test_env, Some(&PathBuf::from("dir").join("file.txt")))
     } else {
-        TestData::new(&test_env, Some("file.txt"))
+        TestData::new(&test_env, Some(&PathBuf::from("file.txt")))
     };
 
     let path_within_graveyard = (if in_folder {
@@ -457,12 +460,23 @@ fn test_cli(
 
     let base_args = vec!["--graveyard", test_env.graveyard.to_str().unwrap()];
 
-    let names = ["test1.txt", "test2.txt", "dir/test.txt"];
     fs::create_dir_all(test_env.src.join("dir")).unwrap();
 
-    names.map(|name| TestData::new(&test_env, Some(name)));
-    // TODO: Check the data contents
+    let paths = &[
+        PathBuf::from("test1.txt"),
+        PathBuf::from("test2.txt"),
+        PathBuf::from("dir").join("test.txt"),
+    ];
+    let names = {
+        let mut names = Vec::new();
+        for name in paths {
+            TestData::new(&test_env, Some(name));
+            names.push(name.to_str().unwrap());
+        }
+        names
+    };
 
+    // TODO: Check the data contents
     match scenario {
         scenario if scenario.starts_with("inspect") => {
             let mut args = base_args.clone();
@@ -491,7 +505,7 @@ fn test_cli(
         }
         scenario if scenario.starts_with("bury") => {
             let mut bury_args = base_args.clone();
-            bury_args.extend(names);
+            bury_args.extend(&names);
             let mut bury_cmd = cli_runner(&bury_args, Some(&test_env.src));
             let output_stdout = quick_cmd_output(&mut bury_cmd);
             assert!(output_stdout.is_empty());
@@ -511,6 +525,7 @@ fn test_cli(
             assert!(!output_stdout.is_empty());
             if scenario.contains("seance") {
                 assert!(!names
+                    .iter()
                     .map(|name| {
                         let full_match = if scenario.contains("unbury") {
                             format!("{} to", name)
@@ -519,14 +534,13 @@ fn test_cli(
                         };
                         output_stdout.contains(&full_match)
                     })
-                    .iter()
                     .any(|has_name| !has_name));
             } else {
                 // Only the last file should be unburied
                 assert!(output_stdout.contains(names[2]));
                 assert!(names
-                    .map(|name| output_stdout.contains(name))
                     .iter()
+                    .map(|name| output_stdout.contains(name))
                     .any(|has_name| !has_name));
             }
         }
