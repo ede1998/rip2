@@ -1,10 +1,16 @@
 use clap::CommandFactory;
 use std::fs::Metadata;
 use std::io::{BufRead, BufReader, Error, ErrorKind, Write};
-use std::os::unix::fs::{FileTypeExt, PermissionsExt};
 use std::path::{Path, PathBuf};
 use std::{env, fs};
 use walkdir::WalkDir;
+
+// Platform-specific imports
+#[cfg(unix)]
+use std::os::unix::fs::{symlink, FileTypeExt, PermissionsExt};
+
+#[cfg(target_os = "windows")]
+use std::os::windows::fs::{symlink, FileTypeExt};
 
 pub mod args;
 pub mod completions;
@@ -14,7 +20,6 @@ pub mod util;
 use args::Args;
 use record::{Record, RecordItem};
 
-const DEFAULT_GRAVEYARD: &str = "/tmp/graveyard";
 const LINES_TO_INSPECT: usize = 6;
 const FILES_TO_INSPECT: usize = 6;
 pub const BIG_FILE_THRESHOLD: u64 = 500000000; // 500 MB
@@ -31,24 +36,29 @@ pub fn run(cli: Args, mode: impl util::TestingMode, stream: &mut impl Write) -> 
     let graveyard = &{
         if let Some(flag) = cli.graveyard {
             flag
-        } else if let Ok(env) = env::var("RIP_GRAVEYARD") {
-            PathBuf::from(env)
-        } else if let Ok(mut env) = env::var("XDG_DATA_HOME") {
-            if !env.ends_with(std::path::MAIN_SEPARATOR) {
-                env.push(std::path::MAIN_SEPARATOR);
+        } else if let Ok(env_graveyard) = env::var("RIP_GRAVEYARD") {
+            PathBuf::from(env_graveyard)
+        } else if let Ok(mut env_graveyard) = env::var("XDG_DATA_HOME") {
+            if !env_graveyard.ends_with(std::path::MAIN_SEPARATOR) {
+                env_graveyard.push(std::path::MAIN_SEPARATOR);
             }
-            env.push_str("graveyard");
-            PathBuf::from(env)
+            env_graveyard.push_str("graveyard");
+            PathBuf::from(env_graveyard)
         } else {
-            PathBuf::from(format!("{}-{}", DEFAULT_GRAVEYARD, util::get_user()))
+            default_graveyard()
         }
     };
 
     if !graveyard.exists() {
         fs::create_dir_all(graveyard)?;
         let metadata = graveyard.metadata()?;
-        let mut permissions = metadata.permissions();
-        permissions.set_mode(0o700);
+
+        #[cfg(unix)]
+        {
+            let mut permissions = metadata.permissions();
+            permissions.set_mode(0o700);
+        }
+        // TODO: Default permissions on windows should be good, but need to double-check.
     }
 
     // If the user wishes to restore everything
@@ -381,17 +391,27 @@ pub fn copy_file(
 
     if filetype.is_file() {
         fs::copy(source, dest)?;
-    } else if filetype.is_fifo() {
+        return Ok(());
+    }
+
+    #[cfg(unix)]
+    if filetype.is_fifo() {
         let metadata_mode = metadata.permissions().mode();
         std::process::Command::new("mkfifo")
             .arg(dest)
             .arg("-m")
             .arg(metadata_mode.to_string())
             .output()?;
-    } else if filetype.is_symlink() {
+        return Ok(());
+    }
+
+    if filetype.is_symlink() {
         let target = fs::read_link(source)?;
-        std::os::unix::fs::symlink(target, dest)?;
-    } else if let Err(e) = fs::copy(source, dest) {
+        symlink(target, dest)?;
+        return Ok(());
+    }
+
+    if let Err(e) = fs::copy(source, dest) {
         // Special file: Try copying it as normal, but this probably won't work
         writeln!(
             stream,
@@ -410,4 +430,16 @@ pub fn copy_file(
     }
 
     Ok(())
+}
+
+fn default_graveyard() -> PathBuf {
+    let user = util::get_user();
+
+    #[cfg(unix)]
+    let base_path = "/tmp/graveyard";
+
+    #[cfg(target_os = "windows")]
+    let base_path = env::var("TEMP").unwrap_or_else(|_| "C:\\Windows\\Temp".to_string());
+
+    PathBuf::from(format!("{}-{}", base_path, user))
 }

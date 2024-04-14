@@ -19,7 +19,14 @@ pub fn symlink_exists<P: AsRef<Path>>(path: P) -> bool {
 }
 
 pub fn get_user() -> String {
-    env::var("USER").unwrap_or_else(|_| String::from("unknown"))
+    #[cfg(unix)]
+    {
+        env::var("USER").unwrap_or_else(|_| String::from("unknown"))
+    }
+    #[cfg(target_os = "windows")]
+    {
+        env::var("USERNAME").unwrap_or_else(|_| String::from("unknown"))
+    }
 }
 
 // Allows injection of test-specific behavior

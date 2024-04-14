@@ -4,14 +4,21 @@ use rip2::util::TestMode;
 use rstest::rstest;
 use std::fs;
 use std::io::Cursor;
-use std::os::unix;
-use std::os::unix::net::UnixListener;
 use std::path::PathBuf;
 use std::process;
 use tempfile::tempdir;
 
+#[cfg(unix)]
+use std::os::unix::fs::symlink;
+
+#[cfg(unix)]
+use std::os::unix::net::UnixListener;
+
 #[cfg(target_os = "macos")]
 use std::os::unix::fs::FileTypeExt;
+
+#[cfg(target_os = "windows")]
+use std::os::windows::fs::symlink;
 
 #[rstest]
 fn test_validation() {
@@ -40,6 +47,13 @@ fn test_filetypes(
     if ["big", "socket"].contains(&file_type) && !copy {
         return;
     }
+
+    #[cfg(target_os = "windows")]
+    {
+        if ["fifo", "socket"].contains(&file_type) {
+            return;
+        }
+    }
     let tmpdir = tempdir().unwrap();
     let path = PathBuf::from(tmpdir.path());
     let source_path = path.join("test_file");
@@ -63,10 +77,13 @@ fn test_filetypes(
         "symlink" => {
             let target_path = path.join("symlink_target");
             fs::File::create(&target_path).unwrap();
-            unix::fs::symlink(&target_path, &source_path).unwrap();
+            symlink(&target_path, &source_path).unwrap();
         }
         "socket" => {
-            UnixListener::bind(&source_path).unwrap();
+            #[cfg(unix)]
+            {
+                UnixListener::bind(&source_path).unwrap();
+            }
         }
         _ => unreachable!(),
     }
