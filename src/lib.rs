@@ -191,7 +191,7 @@ fn bury_target(
             ),
         )
     })?;
-    debug!("Found metadata: {:?}", metadata);
+    debug!("Found metadata for target: {:?}", metadata);
     // Canonicalize the path unless it's a symlink
     let source = &if !metadata.file_type().is_symlink() {
         cwd.join(target)
@@ -200,6 +200,7 @@ fn bury_target(
     } else {
         cwd.join(target)
     };
+    debug!("Using canonicalized path for target: {}", source.display());
 
     if inspect {
         let moved_to_graveyard = do_inspection(target, source, metadata, mode, stream)?;
@@ -257,6 +258,7 @@ fn do_inspection(
     stream: &mut impl Write,
 ) -> Result<bool, Error> {
     if metadata.is_dir() {
+        debug!("Detected target to be a directory; printing content summary");
         // Get the size of the directory and all its contents
         writeln!(
             stream,
@@ -272,6 +274,7 @@ fn do_inspection(
             )
         )?;
 
+        debug!("Printing first {} files in directory", FILES_TO_INSPECT);
         // Print the first few top-level files in the directory
         for entry in WalkDir::new(source)
             .min_depth(1)
@@ -283,6 +286,7 @@ fn do_inspection(
             writeln!(stream, "{}", entry.path().display())?;
         }
     } else {
+        debug!("Detected target to be a file");
         writeln!(
             stream,
             "{}: file, {}",
@@ -291,6 +295,7 @@ fn do_inspection(
         )?;
         // Read the file and print the first few lines
         if let Ok(source_file) = fs::File::open(source) {
+            debug!("Printing first {} lines of file", LINES_TO_INSPECT);
             for line in BufReader::new(source_file)
                 .lines()
                 .take(LINES_TO_INSPECT)
@@ -317,10 +322,16 @@ pub fn move_target(
 ) -> Result<(), Error> {
     // Try a simple rename, which will only work within the same mount point.
     // Trying to rename across filesystems will throw errno 18.
+    debug!(
+        "Attempting a simple rename from {} to {}",
+        target.display(),
+        dest.display()
+    );
     if fs::rename(target, dest).is_ok() {
         return Ok(());
     }
 
+    debug!("Simple rename failed, attempting to copy and remove");
     // If that didn't work, then copy and rm.
     {
         let parent = dest
