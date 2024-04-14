@@ -1,10 +1,15 @@
 use clap::CommandFactory;
-use log::debug;
 use std::fs::Metadata;
 use std::io::{BufRead, BufReader, Error, ErrorKind, Write};
 use std::path::{Path, PathBuf};
 use std::{env, fs};
 use walkdir::WalkDir;
+
+#[cfg(not(feature = "testing"))]
+use log::debug;
+
+#[cfg(feature = "testing")]
+use std::println as debug;
 
 // Platform-specific imports
 #[cfg(unix)]
@@ -27,6 +32,7 @@ pub const BIG_FILE_THRESHOLD: u64 = 500000000; // 500 MB
 
 pub fn run(cli: Args, mode: impl util::TestingMode, stream: &mut impl Write) -> Result<(), Error> {
     args::validate_args(&cli)?;
+    debug!("ENTERED RUN FUNCTION!");
     // This selects the location of deleted
     // files based on the following order (from
     // first choice to last):
@@ -136,6 +142,7 @@ pub fn run(cli: Args, mode: impl util::TestingMode, stream: &mut impl Write) -> 
                     ),
                 )
             })?;
+            debug!("Moved target to {}", orig.display());
             writeln!(
                 stream,
                 "Returned {} to {}",

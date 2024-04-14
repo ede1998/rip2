@@ -332,7 +332,11 @@ fn test_duplicate_file(
     // Now, both files should be restored, one with the original name and the other with '~1' appended
     assert!(test_data1.path.exists());
     if !in_folder {
-        assert!(test_env.src.join("file.txt~1").exists());
+        assert!(
+            test_env.src.join("file.txt~1").exists(),
+            "Couldn't find file.txt~1 in {:?}",
+            test_env.src
+        );
     } else {
         assert!(test_env.src.join("dir~1/file.txt").exists());
     }

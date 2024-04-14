@@ -5,7 +5,11 @@ use std::io::Error;
 use std::io::{self, BufReader, Read, Write};
 use std::path::{Component, Path, PathBuf};
 
+#[cfg(not(feature = "testing"))]
 use log::debug;
+
+#[cfg(feature = "testing")]
+use std::println as debug;
 
 fn hash_component(prefix_component: &Component) -> String {
     let mut hasher = DefaultHasher::new();
@@ -42,7 +46,6 @@ pub fn join_absolute<A: AsRef<Path>, B: AsRef<Path>>(left: A, right: B) -> PathB
                 }
             }
         }
-        debug!("Components: {:?}", result);
         result.as_path().to_path_buf()
     };
 
