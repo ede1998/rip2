@@ -212,7 +212,7 @@ fn bury_target(
         }
     }
 
-    println!(
+    debug!(
         "Checking if {} is already in the graveyard",
         source.display()
     );
