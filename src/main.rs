@@ -2,9 +2,13 @@ use clap::Parser;
 use std::io;
 use std::process::ExitCode;
 
+use env_logger::Env;
 use rip2::{args, completions, util};
 
 fn main() -> ExitCode {
+    let env = Env::default().filter_or("RIP_LOG", "info");
+    env_logger::init_from_env(env);
+
     let cli = args::Args::parse();
     let mut stream = io::stdout();
     let mode = util::ProductionMode;

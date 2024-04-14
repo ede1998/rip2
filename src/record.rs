@@ -7,6 +7,7 @@ use crate::util;
 
 const RECORD: &str = ".record";
 
+#[derive(Debug)]
 pub struct RecordItem<'a> {
     _time: &'a str,
     pub orig: &'a Path,

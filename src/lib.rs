@@ -1,4 +1,5 @@
 use clap::CommandFactory;
+use log::debug;
 use std::fs::Metadata;
 use std::io::{BufRead, BufReader, Error, ErrorKind, Write};
 use std::path::{Path, PathBuf};
@@ -33,7 +34,7 @@ pub fn run(cli: Args, mode: impl util::TestingMode, stream: &mut impl Write) -> 
     // 2. Path pointed by the $GRAVEYARD variable
     // 3. $XDG_DATA_HOME/graveyard (only if XDG_DATA_HOME is defined)
     // 4. /tmp/graveyard-user
-    let graveyard = &{
+    let graveyard: &PathBuf = &{
         if let Some(flag) = cli.graveyard {
             flag
         } else if let Ok(env_graveyard) = env::var("RIP_GRAVEYARD") {
@@ -48,8 +49,10 @@ pub fn run(cli: Args, mode: impl util::TestingMode, stream: &mut impl Write) -> 
             default_graveyard()
         }
     };
+    debug!("Graveyard set to: {}", graveyard.display());
 
     if !graveyard.exists() {
+        debug!("Creating graveyard at {}", graveyard.display());
         fs::create_dir_all(graveyard)?;
 
         #[cfg(unix)]
@@ -57,14 +60,17 @@ pub fn run(cli: Args, mode: impl util::TestingMode, stream: &mut impl Write) -> 
             let metadata = graveyard.metadata()?;
             let mut permissions = metadata.permissions();
             permissions.set_mode(0o700);
+            debug!("Setting permissions on graveyard to 700");
         }
         // TODO: Default permissions on windows should be good, but need to double-check.
     }
 
     // If the user wishes to restore everything
     if cli.decompose {
+        debug!("Decomposing graveyard");
         if util::prompt_yes("Really unlink the entire graveyard?", &mode, stream)? {
             fs::remove_dir_all(graveyard)?;
+            debug!("Finished removing all directories");
         }
         return Ok(());
     }
@@ -72,39 +78,53 @@ pub fn run(cli: Args, mode: impl util::TestingMode, stream: &mut impl Write) -> 
     // Stores the deleted files
     let record = Record::new(graveyard);
     let cwd = &env::current_dir()?;
+    debug!("Current working directory: {}", cwd.display());
 
     if let Some(mut graves_to_exhume) = cli.unbury {
         // Vector to hold the grave path of items we want to unbury.
         // This will be used to determine which items to remove from the
         // record following the unbury.
         // Initialize it with the targets passed to -r
+        debug!(
+            "Entered unbury mode with {:?} explicitly passed",
+            graves_to_exhume
+        );
 
         // If -s is also passed, push all files found by seance onto
         // the graves_to_exhume.
         if cli.seance && record.open().is_ok() {
+            debug!("Seance mode enabled");
             let gravepath = util::join_absolute(graveyard, cwd)
                 .to_string_lossy()
                 .into_owned();
             for grave in record.seance(gravepath) {
                 graves_to_exhume.push(grave);
             }
+            debug!("Found graves to exhume: {:?}", graves_to_exhume);
         }
 
         // Otherwise, add the last deleted file
         if graves_to_exhume.is_empty() {
+            debug!("No graves passed, checking for last buried file");
             if let Ok(s) = record.get_last_bury() {
                 graves_to_exhume.push(s);
+                debug!("Found last buried file: {:?}", graves_to_exhume);
             }
         }
 
         // Go through the graveyard and exhume all the graves
         for line in record.lines_of_graves(&graves_to_exhume) {
             let entry = RecordItem::new(&line);
+            debug!("Exhuming: {:?}", entry);
             let orig: PathBuf = match util::symlink_exists(entry.orig) {
                 true => util::rename_grave(entry.orig),
                 false => PathBuf::from(entry.orig),
             };
-
+            debug!(
+                "Executing move_target from {} to {}",
+                entry.dest.display(),
+                orig.display()
+            );
             move_target(entry.dest, &orig, &mode, stream).map_err(|e| {
                 Error::new(
                     e.kind(),
@@ -122,13 +142,16 @@ pub fn run(cli: Args, mode: impl util::TestingMode, stream: &mut impl Write) -> 
                 orig.display()
             )?;
         }
+        debug!("Finished exhuming graves");
         record.log_exhumed_graves(&graves_to_exhume)?;
 
         return Ok(());
     }
 
     if cli.seance {
+        debug!("Seance mode enabled");
         let gravepath = util::join_absolute(graveyard, cwd);
+        debug!("Checking for graves in {}", gravepath.display());
         for grave in record.seance(gravepath.to_string_lossy()) {
             writeln!(stream, "{}", grave.display())?;
         }
@@ -136,11 +159,13 @@ pub fn run(cli: Args, mode: impl util::TestingMode, stream: &mut impl Write) -> 
     }
 
     if cli.targets.is_empty() {
+        debug!("Found no targets, printing help");
         Args::command().print_help()?;
         return Ok(());
     }
 
     for target in cli.targets {
+        debug!("Burying target: {}", target.display());
         bury_target(&target, graveyard, &record, cwd, cli.inspect, &mode, stream)?;
     }
 
@@ -166,6 +191,7 @@ fn bury_target(
             ),
         )
     })?;
+    debug!("Found metadata: {:?}", metadata);
     // Canonicalize the path unless it's a symlink
     let source = &if !metadata.file_type().is_symlink() {
         cwd.join(target)
