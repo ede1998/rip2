@@ -4,6 +4,7 @@
 
 ### A safer, rust-based `rm`
 
+[![crates](https://img.shields.io/crates/v/rip2.svg)](https://crates.io/crates/rip2)
 [![Test](https://github.com/MilesCranmer/rip2/actions/workflows/test.yml/badge.svg)](https://github.com/MilesCranmer/rip2/actions/workflows/test.yml)
 [![Coverage Status](https://coveralls.io/repos/github/MilesCranmer/rip2/badge.svg?branch=master)](https://coveralls.io/github/MilesCranmer/rip2?branch=master)
 
