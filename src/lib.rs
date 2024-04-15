@@ -387,46 +387,7 @@ pub fn move_target(
 
     let sym_link_data = fs::symlink_metadata(target)?;
     if sym_link_data.is_dir() {
-        // Walk the source, creating directories and copying files as needed
-        for entry in WalkDir::new(target).into_iter().filter_map(|e| e.ok()) {
-            // Path without the top-level directory
-            let orphan = entry.path().strip_prefix(target).map_err(|_| {
-                Error::new(
-                    ErrorKind::Other,
-                    "Parent directory isn't a prefix of child directories?",
-                )
-            })?;
-
-            if entry.file_type().is_dir() {
-                fs::create_dir_all(dest.join(orphan)).map_err(|e| {
-                    Error::new(
-                        e.kind(),
-                        format!(
-                            "Failed to create dir: {} in {}",
-                            entry.path().display(),
-                            dest.join(orphan).display()
-                        ),
-                    )
-                })?;
-            } else {
-                copy_file(entry.path(), &dest.join(orphan), mode, stream).map_err(|e| {
-                    Error::new(
-                        e.kind(),
-                        format!(
-                            "Failed to copy file from {} to {}",
-                            entry.path().display(),
-                            dest.join(orphan).display()
-                        ),
-                    )
-                })?;
-            }
-        }
-        fs::remove_dir_all(target).map_err(|e| {
-            Error::new(
-                e.kind(),
-                format!("Failed to remove dir: {}", target.display()),
-            )
-        })?;
+        move_dir(target, dest, mode, stream)?;
     } else {
         copy_file(target, dest, mode, stream).map_err(|e| {
             Error::new(
@@ -445,6 +406,56 @@ pub fn move_target(
             )
         })?;
     }
+
+    Ok(())
+}
+
+fn move_dir(
+    target: &Path,
+    dest: &Path,
+    mode: &impl util::TestingMode,
+    stream: &mut impl Write,
+) -> Result<(), Error> {
+    // Walk the source, creating directories and copying files as needed
+    for entry in WalkDir::new(target).into_iter().filter_map(|e| e.ok()) {
+        // Path without the top-level directory
+        let orphan = entry.path().strip_prefix(target).map_err(|_| {
+            Error::new(
+                ErrorKind::Other,
+                "Parent directory isn't a prefix of child directories?",
+            )
+        })?;
+
+        if entry.file_type().is_dir() {
+            fs::create_dir_all(dest.join(orphan)).map_err(|e| {
+                Error::new(
+                    e.kind(),
+                    format!(
+                        "Failed to create dir: {} in {}",
+                        entry.path().display(),
+                        dest.join(orphan).display()
+                    ),
+                )
+            })?;
+        } else {
+            copy_file(entry.path(), &dest.join(orphan), mode, stream).map_err(|e| {
+                Error::new(
+                    e.kind(),
+                    format!(
+                        "Failed to copy file from {} to {}",
+                        entry.path().display(),
+                        dest.join(orphan).display()
+                    ),
+                )
+            })?;
+        }
+    }
+    fs::remove_dir_all(target).map_err(|e| {
+        Error::new(
+            e.kind(),
+            format!("Failed to remove dir: {}", target.display()),
+        )
+    })?;
 
     Ok(())
 }
