@@ -69,7 +69,7 @@ pub fn run(cli: Args, mode: impl util::TestingMode, stream: &mut impl Write) -> 
         // the graves_to_exhume.
         if cli.seance && record.open().is_ok() {
             let gravepath = util::join_absolute(graveyard, dunce::canonicalize(cwd)?);
-            for grave in record.seance(&gravepath) {
+            for grave in record.seance(&gravepath)? {
                 graves_to_exhume.push(grave);
             }
         }
@@ -112,7 +112,7 @@ pub fn run(cli: Args, mode: impl util::TestingMode, stream: &mut impl Write) -> 
 
     if cli.seance {
         let gravepath = util::join_absolute(graveyard, dunce::canonicalize(cwd)?);
-        for grave in record.seance(&gravepath) {
+        for grave in record.seance(&gravepath)? {
             writeln!(stream, "{}", grave.display())?;
         }
         return Ok(());

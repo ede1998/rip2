@@ -123,13 +123,16 @@ impl Record {
     }
 
     /// Returns an iterator over all graves in the record that are under gravepath
-    pub fn seance<'a>(&'a self, gravepath: &'a PathBuf) -> impl Iterator<Item = PathBuf> + 'a {
-        let record_file = self.open().unwrap();
-        BufReader::new(record_file)
+    pub fn seance<'a>(
+        &'a self,
+        gravepath: &'a PathBuf,
+    ) -> io::Result<impl Iterator<Item = PathBuf> + 'a> {
+        let record_file = self.open()?;
+        Ok(BufReader::new(record_file)
             .lines()
             .map_while(Result::ok)
             .map(|line| PathBuf::from(RecordItem::new(&line).dest))
-            .filter(move |d| d.starts_with(gravepath))
+            .filter(move |d| d.starts_with(gravepath)))
     }
 
     /// Write deletion history to record
