@@ -1,7 +1,9 @@
-use assert_cmd::Command;
+use lazy_static::lazy_static;
+use predicates::str::is_match;
 use rand::distributions::Alphanumeric;
 use rand::Rng;
 use rip2::args::Args;
+use rip2::record;
 use rip2::util::TestMode;
 use rip2::{self, util};
 use rstest::rstest;
@@ -11,8 +13,6 @@ use std::path::PathBuf;
 use std::sync::{Mutex, MutexGuard};
 use std::{env, ffi, iter};
 use tempfile::{tempdir, TempDir};
-
-use lazy_static::lazy_static;
 
 lazy_static! {
     static ref GLOBAL_LOCK: Mutex<()> = Mutex::new(());
@@ -53,15 +53,18 @@ struct TestData {
 }
 
 impl TestData {
-    fn new(test_env: &TestEnv, filename: Option<&str>) -> TestData {
+    fn new(test_env: &TestEnv, filename: Option<&PathBuf>) -> TestData {
         let data = rand::thread_rng()
             .sample_iter(&Alphanumeric)
             .take(100)
             .map(char::from)
             .collect::<String>();
 
-        let taken_filename = filename.unwrap_or("test_file.txt");
-        let path = test_env.src.join(taken_filename);
+        let path = if let Some(taken_filename) = filename {
+            test_env.src.join(taken_filename)
+        } else {
+            test_env.src.join("test_file.txt")
+        };
         let mut file = fs::File::create(&path).unwrap();
         file.write_all(data.as_bytes()).unwrap();
 
@@ -78,8 +81,10 @@ fn test_bury_unbury(#[values(false, true)] decompose: bool, #[values(false, true
     let test_env = TestEnv::new();
     let test_data = TestData::new(&test_env, None);
     // And is now in the graveyard
-    let expected_graveyard_path =
-        util::join_absolute(&test_env.graveyard, test_data.path.canonicalize().unwrap());
+    let expected_graveyard_path = util::join_absolute(
+        &test_env.graveyard,
+        dunce::canonicalize(&test_data.path).unwrap(),
+    );
 
     let mut log = Vec::new();
     rip2::run(
@@ -184,8 +189,10 @@ fn test_env(#[values("RIP_GRAVEYARD", "XDG_DATA_HOME")] env_var: &str) {
     } else {
         test_env.graveyard.clone()
     };
-    let expected_graveyard_path =
-        util::join_absolute(modified_graveyard, test_data.path.canonicalize().unwrap());
+    let expected_graveyard_path = util::join_absolute(
+        modified_graveyard,
+        dunce::canonicalize(&test_data.path).unwrap(),
+    );
 
     let graveyard = test_env.graveyard.clone();
     env::set_var(env_var, graveyard);
@@ -223,12 +230,14 @@ fn test_duplicate_file(
     // Bury the first file
     let test_data1 = if in_folder {
         fs::create_dir(test_env.src.join("dir")).unwrap();
-        TestData::new(&test_env, Some("dir/file.txt"))
+        TestData::new(&test_env, Some(&PathBuf::from("dir").join("file.txt")))
     } else {
-        TestData::new(&test_env, Some("file.txt"))
+        TestData::new(&test_env, Some(&PathBuf::from("file.txt")))
     };
-    let expected_graveyard_path1 =
-        util::join_absolute(&test_env.graveyard, test_data1.path.canonicalize().unwrap());
+    let expected_graveyard_path1 = util::join_absolute(
+        &test_env.graveyard,
+        dunce::canonicalize(&test_data1.path).unwrap(),
+    );
 
     let mut log = Vec::new();
     rip2::run(
@@ -261,17 +270,16 @@ fn test_duplicate_file(
     let test_data2 = if in_folder {
         // TODO: Why do we need to create the whole dir?
         fs::create_dir_all(test_env.src.join("dir")).unwrap();
-        TestData::new(&test_env, Some("dir/file.txt"))
+        TestData::new(&test_env, Some(&PathBuf::from("dir").join("file.txt")))
     } else {
-        TestData::new(&test_env, Some("file.txt"))
+        TestData::new(&test_env, Some(&PathBuf::from("file.txt")))
     };
 
-    let path_within_graveyard = (if in_folder {
+    let path_within_graveyard = dunce::canonicalize(if in_folder {
         test_data2.path.parent().unwrap().to_path_buf()
     } else {
         test_data2.path.clone()
     })
-    .canonicalize()
     .unwrap();
 
     let expected_graveyard_path2 = util::join_absolute(
@@ -324,7 +332,11 @@ fn test_duplicate_file(
     // Now, both files should be restored, one with the original name and the other with '~1' appended
     assert!(test_data1.path.exists());
     if !in_folder {
-        assert!(test_env.src.join("file.txt~1").exists());
+        assert!(
+            test_env.src.join("file.txt~1").exists(),
+            "Couldn't find file.txt~1 in {:?}",
+            test_env.src
+        );
     } else {
         assert!(test_env.src.join("dir~1/file.txt").exists());
     }
@@ -346,8 +358,10 @@ fn test_big_file() {
     let file = fs::File::create(&big_file_path).unwrap();
     file.set_len(size).unwrap();
 
-    let expected_graveyard_path =
-        util::join_absolute(&test_env.graveyard, big_file_path.canonicalize().unwrap());
+    let expected_graveyard_path = util::join_absolute(
+        &test_env.graveyard,
+        dunce::canonicalize(big_file_path).unwrap(),
+    );
 
     let mut log = Vec::new();
     rip2::run(
@@ -400,24 +414,23 @@ fn test_same_file_twice() {
     assert!(err_msg.contains("no such file or directory"));
 }
 
-fn cli_runner<I, S>(args: I, cwd: Option<&PathBuf>) -> Command
+fn cli_runner<I, S>(args: I, cwd: Option<&PathBuf>) -> assert_cmd::Command
 where
     I: IntoIterator<Item = S>,
     S: AsRef<ffi::OsStr>,
 {
-    let mut cmd = Command::cargo_bin("rip").unwrap();
-    let mut cmd_ref = &mut cmd;
-    cmd_ref.env_clear();
+    let mut cmd = assert_cmd::Command::cargo_bin("rip").unwrap();
     if let Some(cwd) = cwd {
-        cmd_ref.current_dir(cwd);
+        cmd.current_dir(cwd);
     }
     for arg in args {
-        cmd_ref = cmd_ref.arg(arg);
+        cmd.arg(arg);
     }
+    cmd.env("__RIP_ALLOW_RENAME", "false");
     cmd
 }
 
-fn quick_cmd_output(cmd: &mut Command) -> String {
+fn quick_cmd_output(cmd: &mut assert_cmd::Command) -> String {
     String::from_utf8(cmd.output().unwrap().stdout).unwrap()
 }
 
@@ -457,12 +470,23 @@ fn test_cli(
 
     let base_args = vec!["--graveyard", test_env.graveyard.to_str().unwrap()];
 
-    let names = ["test1.txt", "test2.txt", "dir/test.txt"];
     fs::create_dir_all(test_env.src.join("dir")).unwrap();
 
-    names.map(|name| TestData::new(&test_env, Some(name)));
-    // TODO: Check the data contents
+    let paths = &[
+        PathBuf::from("test1.txt"),
+        PathBuf::from("test2.txt"),
+        PathBuf::from("dir").join("test.txt"),
+    ];
+    let names = {
+        let mut names = Vec::new();
+        for name in paths {
+            TestData::new(&test_env, Some(name));
+            names.push(name.to_str().unwrap());
+        }
+        names
+    };
 
+    // TODO: Check the data contents
     match scenario {
         scenario if scenario.starts_with("inspect") => {
             let mut args = base_args.clone();
@@ -491,7 +515,7 @@ fn test_cli(
         }
         scenario if scenario.starts_with("bury") => {
             let mut bury_args = base_args.clone();
-            bury_args.extend(names);
+            bury_args.extend(&names);
             let mut bury_cmd = cli_runner(&bury_args, Some(&test_env.src));
             let output_stdout = quick_cmd_output(&mut bury_cmd);
             assert!(output_stdout.is_empty());
@@ -508,9 +532,14 @@ fn test_cli(
             }
             let mut final_cmd = cli_runner(&unbury_args, Some(&test_env.src));
             let output_stdout = quick_cmd_output(&mut final_cmd);
-            assert!(!output_stdout.is_empty());
+            assert!(
+                !output_stdout.is_empty(),
+                "Output was empty for scenario: {}",
+                scenario
+            );
             if scenario.contains("seance") {
                 assert!(!names
+                    .iter()
                     .map(|name| {
                         let full_match = if scenario.contains("unbury") {
                             format!("{} to", name)
@@ -519,17 +548,131 @@ fn test_cli(
                         };
                         output_stdout.contains(&full_match)
                     })
-                    .iter()
                     .any(|has_name| !has_name));
             } else {
                 // Only the last file should be unburied
                 assert!(output_stdout.contains(names[2]));
                 assert!(names
-                    .map(|name| output_stdout.contains(name))
                     .iter()
+                    .map(|name| output_stdout.contains(name))
                     .any(|has_name| !has_name));
             }
         }
         _ => unreachable!(),
     }
+}
+
+#[rstest]
+fn issue_0018() {
+    let _env_lock = aquire_lock();
+    let test_env = TestEnv::new();
+
+    // Make a big file
+    {
+        let size = rip2::BIG_FILE_THRESHOLD + 1;
+        let file = fs::File::create(test_env.src.join("uu_meta.zip")).unwrap();
+        file.set_len(size).unwrap();
+    }
+
+    // rip it and hit return to bury it anyways
+    {
+        let expected_graveyard_path = util::join_absolute(
+            &test_env.graveyard,
+            dunce::canonicalize(test_env.src.join("uu_meta.zip")).unwrap(),
+        );
+        cli_runner(
+            [
+                "--graveyard",
+                test_env.graveyard.to_str().unwrap(),
+                "uu_meta.zip",
+            ],
+            Some(&test_env.src),
+        )
+        .write_stdin("\n")
+        .assert()
+        .stdout(is_match("About to copy a big file").unwrap())
+        .stdout(is_match("delete this file instead?").unwrap())
+        .stdout(is_match("y/N").unwrap());
+
+        // Expect it to be buried
+        assert!(!test_env.src.join("uu_meta.zip").exists());
+        assert!(expected_graveyard_path.exists());
+    }
+
+    // Make another big file
+    {
+        let size = rip2::BIG_FILE_THRESHOLD + 1;
+        let file = fs::File::create(test_env.src.join("gnu_meta.zip")).unwrap();
+        file.set_len(size).unwrap();
+    }
+
+    // rip it with interactive mode on, but quit
+    {
+        let expected_graveyard_path = util::join_absolute(
+            &test_env.graveyard,
+            dunce::canonicalize(test_env.src.join("gnu_meta.zip")).unwrap(),
+        );
+        cli_runner(
+            [
+                "--graveyard",
+                test_env.graveyard.to_str().unwrap(),
+                "-i",
+                "gnu_meta.zip",
+            ],
+            Some(&test_env.src),
+        )
+        .write_stdin("q\n")
+        .assert()
+        .stdout(is_match("gnu_meta.zip: file, ").unwrap());
+
+        // Expect it to remain in-place:
+        assert!(test_env.src.join("gnu_meta.zip").exists());
+        // And not in the graveyard:
+        assert!(!expected_graveyard_path.exists());
+
+        // The graveyard record should *only* reference uu_meta.zip:
+        let record_contents = fs::read_to_string(test_env.graveyard.join(record::RECORD)).unwrap();
+        assert!(record_contents.contains("uu_meta.zip"));
+        assert!(!record_contents.contains("gnu_meta.zip"));
+
+        // And give this for the last bury
+        let record = record::Record::new(&test_env.graveyard);
+        let last_bury = record.get_last_bury().unwrap();
+        assert!(last_bury.ends_with("uu_meta.zip"));
+    }
+
+    // rip it again but without -i
+    {
+        // Should still be there
+        assert!(test_env.src.join("gnu_meta.zip").exists());
+
+        let expected_graveyard_path = util::join_absolute(
+            &test_env.graveyard,
+            dunce::canonicalize(test_env.src.join("gnu_meta.zip")).unwrap(),
+        );
+
+        cli_runner(
+            [
+                "--graveyard",
+                test_env.graveyard.to_str().unwrap(),
+                "gnu_meta.zip",
+            ],
+            Some(&test_env.src),
+        )
+        .write_stdin("y\n")
+        .assert()
+        .stdout(is_match("About to copy a big file").unwrap())
+        .stdout(is_match("delete this file instead?").unwrap())
+        .stdout(is_match("y/N").unwrap());
+
+        // Expect it to be permanently deleted
+        assert!(!test_env.src.join("gnu_meta.zip").exists());
+        assert!(!expected_graveyard_path.exists());
+
+        // The record should not reference it anymore either
+        let record_contents = fs::read_to_string(test_env.graveyard.join(record::RECORD)).unwrap();
+        assert!(!record_contents.contains("gnu_meta.zip"));
+    }
+
+    return;
 }

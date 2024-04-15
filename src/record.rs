@@ -5,8 +5,9 @@ use std::{fs, io};
 
 use crate::util;
 
-const RECORD: &str = ".record";
+pub const RECORD: &str = ".record";
 
+#[derive(Debug)]
 pub struct RecordItem<'a> {
     _time: &'a str,
     pub orig: &'a Path,
@@ -28,6 +29,7 @@ impl RecordItem<'_> {
     }
 }
 
+#[derive(Debug)]
 pub struct Record {
     path: PathBuf,
 }
@@ -121,13 +123,13 @@ impl Record {
     }
 
     /// Returns an iterator over all graves in the record that are under gravepath
-    pub fn seance<T: AsRef<str>>(&self, gravepath: T) -> impl Iterator<Item = PathBuf> {
+    pub fn seance<'a>(&'a self, gravepath: &'a PathBuf) -> impl Iterator<Item = PathBuf> + 'a {
         let record_file = self.open().unwrap();
         BufReader::new(record_file)
             .lines()
             .map_while(Result::ok)
             .map(|line| PathBuf::from(RecordItem::new(&line).dest))
-            .filter(move |d| d.starts_with(gravepath.as_ref()))
+            .filter(move |d| d.starts_with(gravepath))
     }
 
     /// Write deletion history to record

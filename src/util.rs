@@ -1,17 +1,47 @@
+use std::collections::hash_map::DefaultHasher;
 use std::env;
 use std::fs;
-use std::io::Error;
-use std::io::{self, BufReader, Read, Write};
-use std::path::{Path, PathBuf};
+use std::hash::{Hash, Hasher};
+use std::io::{self, BufReader, Error, Read, Write};
+use std::path::Prefix::Disk;
+use std::path::{Component, Path, PathBuf};
+use std::str::from_utf8;
+
+fn hash_component(c: &Component) -> String {
+    let mut hasher = DefaultHasher::new();
+    c.hash(&mut hasher);
+    format!("{:x}", hasher.finish())
+}
+fn str_component(c: &Component) -> String {
+    match c {
+        Component::Prefix(prefix) => match prefix.kind() {
+            // C:\\ is the most common, so we just make a readable name for it.
+            Disk(disk) => format!("DISK_{}", from_utf8(&[disk]).unwrap()),
+            _ => hash_component(c),
+        },
+        _ => hash_component(c),
+    }
+}
 
 /// Concatenate two paths, even if the right argument is an absolute path.
 pub fn join_absolute<A: AsRef<Path>, B: AsRef<Path>>(left: A, right: B) -> PathBuf {
     let (left, right) = (left.as_ref(), right.as_ref());
-    left.join(if let Ok(stripped) = right.strip_prefix("/") {
-        stripped
-    } else {
-        right
-    })
+    let mut result = left.to_path_buf();
+    for c in right.components() {
+        match c {
+            Component::RootDir => {}
+            Component::Prefix(_) => {
+                // Hash the prefix component.
+                // We do this because there are many ways to get prefix components
+                // on Windows, so its safer to simply hash it.
+                result.push(str_component(&c));
+            }
+            _ => {
+                result.push(c);
+            }
+        }
+    }
+    result
 }
 
 pub fn symlink_exists<P: AsRef<Path>>(path: P) -> bool {
@@ -19,7 +49,14 @@ pub fn symlink_exists<P: AsRef<Path>>(path: P) -> bool {
 }
 
 pub fn get_user() -> String {
-    env::var("USER").unwrap_or_else(|_| String::from("unknown"))
+    #[cfg(unix)]
+    {
+        env::var("USER").unwrap_or_else(|_| String::from("unknown"))
+    }
+    #[cfg(target_os = "windows")]
+    {
+        env::var("USERNAME").unwrap_or_else(|_| String::from("unknown"))
+    }
 }
 
 // Allows injection of test-specific behavior
@@ -41,7 +78,17 @@ impl TestingMode for TestMode {
     }
 }
 
+pub fn allow_rename() -> bool {
+    // Test behavior to skip simple rename
+    env::var("__RIP_ALLOW_RENAME")
+        .unwrap_or("true".to_string())
+        .parse::<bool>()
+        .unwrap()
+}
+
 /// Prompt for user input, returning True if the first character is 'y' or 'Y'
+/// Will create an error if given a 'q' or 'Q', equivalent to if the user
+/// had passed a SIGINT.
 pub fn prompt_yes(
     prompt: impl AsRef<str>,
     source: &impl TestingMode,
@@ -57,18 +104,26 @@ pub fn prompt_yes(
         return Ok(true);
     }
 
-    Ok(process_in_stream(io::stdin()))
+    process_in_stream(io::stdin())
 }
 
-pub fn process_in_stream(in_stream: impl Read) -> bool {
+pub fn process_in_stream(in_stream: impl Read) -> Result<bool, Error> {
     let buffered = BufReader::new(in_stream);
-    buffered
+    let char_result = buffered
         .bytes()
         .next()
         .and_then(|c| c.ok())
-        .map(|c| c as char)
-        .map(|c| (c == 'y' || c == 'Y'))
-        .unwrap_or(false)
+        .map(|c| c as char);
+
+    match char_result {
+        Some('y') | Some('Y') => Ok(true),
+        Some('n') | Some('N') | Some('\n') | None => Ok(false),
+        Some('q') | Some('Q') => Err(Error::new(
+            io::ErrorKind::Interrupted,
+            "User requested to quit",
+        )),
+        _ => Err(Error::new(io::ErrorKind::InvalidInput, "Invalid input")),
+    }
 }
 
 /// Add a numbered extension to duplicate filenames to avoid overwriting files.

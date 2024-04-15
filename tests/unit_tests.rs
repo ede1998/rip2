@@ -3,12 +3,19 @@ use rip2::completions;
 use rip2::util::TestMode;
 use rstest::rstest;
 use std::fs;
-use std::io::Cursor;
-use std::os::unix;
-use std::os::unix::net::UnixListener;
+use std::io::{Cursor, ErrorKind};
 use std::path::PathBuf;
 use std::process;
 use tempfile::tempdir;
+
+#[cfg(unix)]
+use std::os::unix::fs::symlink;
+
+#[cfg(target_os = "windows")]
+use std::os::windows::fs::symlink_file as symlink;
+
+#[cfg(unix)]
+use std::os::unix::net::UnixListener;
 
 #[cfg(target_os = "macos")]
 use std::os::unix::fs::FileTypeExt;
@@ -40,6 +47,13 @@ fn test_filetypes(
     if ["big", "socket"].contains(&file_type) && !copy {
         return;
     }
+
+    #[cfg(target_os = "windows")]
+    {
+        if ["fifo", "socket"].contains(&file_type) {
+            return;
+        }
+    }
     let tmpdir = tempdir().unwrap();
     let path = PathBuf::from(tmpdir.path());
     let source_path = path.join("test_file");
@@ -63,10 +77,13 @@ fn test_filetypes(
         "symlink" => {
             let target_path = path.join("symlink_target");
             fs::File::create(&target_path).unwrap();
-            unix::fs::symlink(&target_path, &source_path).unwrap();
+            symlink(&target_path, &source_path).unwrap();
         }
         "socket" => {
-            UnixListener::bind(&source_path).unwrap();
+            #[cfg(unix)]
+            {
+                UnixListener::bind(&source_path).unwrap();
+            }
         }
         _ => unreachable!(),
     }
@@ -121,28 +138,32 @@ fn test_filetypes(
             assert!(ftype.unwrap().is_symlink());
         }
         "socket" => {
-            assert!(dest_path.exists());
-            assert!(ftype.unwrap().is_file());
-            let contents = fs::read_to_string(&dest_path).unwrap();
-            assert!(contents.contains("marker for a file that was permanently deleted."));
+            // Socket files are not copied, so are instead simply deleted
+            assert!(!dest_path.exists());
         }
         _ => {}
     }
 }
 
 #[rstest]
-fn test_prompt_read(
-    #[values(
-        ("y", true),
-        ("Y", true),
-        ("n", false),
-        ("q", false),
-    )]
-    key: (&str, bool),
-) {
-    let input = Cursor::new(key.0);
+fn test_prompt_read(#[values("y", "Y", "n", "N", "", "\n", "q", "Q", "k")] key: &str) {
+    let input = Cursor::new(key);
     let result = rip2::util::process_in_stream(input);
-    assert_eq!(result, key.1)
+    match key {
+        "y" | "Y" => assert!(result.unwrap()),
+        "n" | "N" | "" | "\n" => assert!(!result.unwrap()),
+        "q" | "Q" => {
+            let err = result.unwrap_err();
+            assert_eq!(err.kind(), ErrorKind::Interrupted);
+            assert_eq!(err.to_string(), "User requested to quit");
+        }
+        "k" => {
+            let err = result.unwrap_err();
+            assert_eq!(err.kind(), ErrorKind::InvalidInput);
+            assert_eq!(err.to_string(), "Invalid input");
+        }
+        _ => {}
+    }
 }
 
 #[rstest]

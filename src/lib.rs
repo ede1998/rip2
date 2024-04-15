@@ -1,10 +1,16 @@
 use clap::CommandFactory;
 use std::fs::Metadata;
 use std::io::{BufRead, BufReader, Error, ErrorKind, Write};
-use std::os::unix::fs::{FileTypeExt, PermissionsExt};
 use std::path::{Path, PathBuf};
 use std::{env, fs};
 use walkdir::WalkDir;
+
+// Platform-specific imports
+#[cfg(unix)]
+use std::os::unix::fs::{symlink, FileTypeExt, PermissionsExt};
+
+#[cfg(target_os = "windows")]
+use std::os::windows::fs::symlink_file as symlink;
 
 pub mod args;
 pub mod completions;
@@ -14,7 +20,6 @@ pub mod util;
 use args::Args;
 use record::{Record, RecordItem};
 
-const DEFAULT_GRAVEYARD: &str = "/tmp/graveyard";
 const LINES_TO_INSPECT: usize = 6;
 const FILES_TO_INSPECT: usize = 6;
 pub const BIG_FILE_THRESHOLD: u64 = 500000000; // 500 MB
@@ -28,27 +33,32 @@ pub fn run(cli: Args, mode: impl util::TestingMode, stream: &mut impl Write) -> 
     // 2. Path pointed by the $GRAVEYARD variable
     // 3. $XDG_DATA_HOME/graveyard (only if XDG_DATA_HOME is defined)
     // 4. /tmp/graveyard-user
-    let graveyard = &{
+    let graveyard: &PathBuf = &{
         if let Some(flag) = cli.graveyard {
             flag
-        } else if let Ok(env) = env::var("RIP_GRAVEYARD") {
-            PathBuf::from(env)
-        } else if let Ok(mut env) = env::var("XDG_DATA_HOME") {
-            if !env.ends_with(std::path::MAIN_SEPARATOR) {
-                env.push(std::path::MAIN_SEPARATOR);
+        } else if let Ok(env_graveyard) = env::var("RIP_GRAVEYARD") {
+            PathBuf::from(env_graveyard)
+        } else if let Ok(mut env_graveyard) = env::var("XDG_DATA_HOME") {
+            if !env_graveyard.ends_with(std::path::MAIN_SEPARATOR) {
+                env_graveyard.push(std::path::MAIN_SEPARATOR);
             }
-            env.push_str("graveyard");
-            PathBuf::from(env)
+            env_graveyard.push_str("graveyard");
+            PathBuf::from(env_graveyard)
         } else {
-            PathBuf::from(format!("{}-{}", DEFAULT_GRAVEYARD, util::get_user()))
+            default_graveyard()
         }
     };
 
     if !graveyard.exists() {
         fs::create_dir_all(graveyard)?;
-        let metadata = graveyard.metadata()?;
-        let mut permissions = metadata.permissions();
-        permissions.set_mode(0o700);
+
+        #[cfg(unix)]
+        {
+            let metadata = graveyard.metadata()?;
+            let mut permissions = metadata.permissions();
+            permissions.set_mode(0o700);
+        }
+        // TODO: Default permissions on windows should be good, but need to double-check.
     }
 
     // If the user wishes to restore everything
@@ -72,10 +82,8 @@ pub fn run(cli: Args, mode: impl util::TestingMode, stream: &mut impl Write) -> 
         // If -s is also passed, push all files found by seance onto
         // the graves_to_exhume.
         if cli.seance && record.open().is_ok() {
-            let gravepath = util::join_absolute(graveyard, cwd)
-                .to_string_lossy()
-                .into_owned();
-            for grave in record.seance(gravepath) {
+            let gravepath = util::join_absolute(graveyard, dunce::canonicalize(cwd)?);
+            for grave in record.seance(&gravepath) {
                 graves_to_exhume.push(grave);
             }
         }
@@ -94,7 +102,6 @@ pub fn run(cli: Args, mode: impl util::TestingMode, stream: &mut impl Write) -> 
                 true => util::rename_grave(entry.orig),
                 false => PathBuf::from(entry.orig),
             };
-
             move_target(entry.dest, &orig, &mode, stream).map_err(|e| {
                 Error::new(
                     e.kind(),
@@ -118,8 +125,8 @@ pub fn run(cli: Args, mode: impl util::TestingMode, stream: &mut impl Write) -> 
     }
 
     if cli.seance {
-        let gravepath = util::join_absolute(graveyard, cwd);
-        for grave in record.seance(gravepath.to_string_lossy()) {
+        let gravepath = util::join_absolute(graveyard, dunce::canonicalize(cwd)?);
+        for grave in record.seance(&gravepath) {
             writeln!(stream, "{}", grave.display())?;
         }
         return Ok(());
@@ -158,8 +165,7 @@ fn bury_target(
     })?;
     // Canonicalize the path unless it's a symlink
     let source = &if !metadata.file_type().is_symlink() {
-        cwd.join(target)
-            .canonicalize()
+        dunce::canonicalize(cwd.join(target))
             .map_err(|e| Error::new(e.kind(), "Failed to canonicalize path"))?
     } else {
         cwd.join(target)
@@ -202,13 +208,15 @@ fn bury_target(
         }
     };
 
-    move_target(source, dest, mode, stream).map_err(|e| {
+    let moved = move_target(source, dest, mode, stream).map_err(|e| {
         fs::remove_dir_all(dest).ok();
         Error::new(e.kind(), "Failed to bury file")
     })?;
 
-    // Clean up any partial buries due to permission error
-    record.write_log(source, dest)?;
+    if moved {
+        // Clean up any partial buries due to permission error
+        record.write_log(source, dest)?;
+    }
 
     Ok(())
 }
@@ -273,71 +281,31 @@ fn do_inspection(
     )?)
 }
 
+/// Move a target to a given destination, copying if necessary.
+/// Returns true if the target was moved, false if it was not (due to
+/// user input)
 pub fn move_target(
     target: &Path,
     dest: &Path,
     mode: &impl util::TestingMode,
     stream: &mut impl Write,
-) -> Result<(), Error> {
+) -> Result<bool, Error> {
     // Try a simple rename, which will only work within the same mount point.
     // Trying to rename across filesystems will throw errno 18.
-    if fs::rename(target, dest).is_ok() {
-        return Ok(());
+    if util::allow_rename() && fs::rename(target, dest).is_ok() {
+        return Ok(true);
     }
 
-    // If that didn't work, then copy and rm.
-    {
-        let parent = dest
-            .parent()
-            .ok_or_else(|| Error::new(ErrorKind::NotFound, "Could not get parent of dest!"))?;
+    // If that didn't work, then we need to copy and rm.
+    fs::create_dir_all(
+        dest.parent()
+            .ok_or_else(|| Error::new(ErrorKind::NotFound, "Could not get parent of dest!"))?,
+    )?;
 
-        fs::create_dir_all(parent)?
-    }
-
-    let sym_link_data = fs::symlink_metadata(target)?;
-    if sym_link_data.is_dir() {
-        // Walk the source, creating directories and copying files as needed
-        for entry in WalkDir::new(target).into_iter().filter_map(|e| e.ok()) {
-            // Path without the top-level directory
-            let orphan = entry.path().strip_prefix(target).map_err(|_| {
-                Error::new(
-                    ErrorKind::Other,
-                    "Parent directory isn't a prefix of child directories?",
-                )
-            })?;
-
-            if entry.file_type().is_dir() {
-                fs::create_dir_all(dest.join(orphan)).map_err(|e| {
-                    Error::new(
-                        e.kind(),
-                        format!(
-                            "Failed to create dir: {} in {}",
-                            entry.path().display(),
-                            dest.join(orphan).display()
-                        ),
-                    )
-                })?;
-            } else {
-                copy_file(entry.path(), &dest.join(orphan), mode, stream).map_err(|e| {
-                    Error::new(
-                        e.kind(),
-                        format!(
-                            "Failed to copy file from {} to {}",
-                            entry.path().display(),
-                            dest.join(orphan).display()
-                        ),
-                    )
-                })?;
-            }
-        }
-        fs::remove_dir_all(target).map_err(|e| {
-            Error::new(
-                e.kind(),
-                format!("Failed to remove dir: {}", target.display()),
-            )
-        })?;
+    if fs::symlink_metadata(target)?.is_dir() {
+        move_dir(target, dest, mode, stream)
     } else {
-        copy_file(target, dest, mode, stream).map_err(|e| {
+        let moved = copy_file(target, dest, mode, stream).map_err(|e| {
             Error::new(
                 e.kind(),
                 format!(
@@ -353,9 +321,60 @@ pub fn move_target(
                 format!("Failed to remove file: {}", target.display()),
             )
         })?;
+        Ok(moved)
     }
+}
 
-    Ok(())
+/// Move a target which is a directory to a given destination, copying if necessary.
+/// Returns true *always*, as the creation of the directory is enough to mark it as successful.
+fn move_dir(
+    target: &Path,
+    dest: &Path,
+    mode: &impl util::TestingMode,
+    stream: &mut impl Write,
+) -> Result<bool, Error> {
+    // Walk the source, creating directories and copying files as needed
+    for entry in WalkDir::new(target).into_iter().filter_map(|e| e.ok()) {
+        // Path without the top-level directory
+        let orphan = entry.path().strip_prefix(target).map_err(|_| {
+            Error::new(
+                ErrorKind::Other,
+                "Parent directory isn't a prefix of child directories?",
+            )
+        })?;
+
+        if entry.file_type().is_dir() {
+            fs::create_dir_all(dest.join(orphan)).map_err(|e| {
+                Error::new(
+                    e.kind(),
+                    format!(
+                        "Failed to create dir: {} in {}",
+                        entry.path().display(),
+                        dest.join(orphan).display()
+                    ),
+                )
+            })?;
+        } else {
+            copy_file(entry.path(), &dest.join(orphan), mode, stream).map_err(|e| {
+                Error::new(
+                    e.kind(),
+                    format!(
+                        "Failed to copy file from {} to {}",
+                        entry.path().display(),
+                        dest.join(orphan).display()
+                    ),
+                )
+            })?;
+        }
+    }
+    fs::remove_dir_all(target).map_err(|e| {
+        Error::new(
+            e.kind(),
+            format!("Failed to remove dir: {}", target.display()),
+        )
+    })?;
+
+    Ok(true)
 }
 
 pub fn copy_file(
@@ -363,7 +382,7 @@ pub fn copy_file(
     dest: &Path,
     mode: &impl util::TestingMode,
     stream: &mut impl Write,
-) -> Result<(), Error> {
+) -> Result<bool, Error> {
     let metadata = fs::symlink_metadata(source)?;
     let filetype = metadata.file_type();
 
@@ -375,39 +394,59 @@ pub fn copy_file(
             util::humanize_bytes(metadata.len())
         )?;
         if util::prompt_yes("Permanently delete this file instead?", mode, stream)? {
-            return Ok(());
+            return Ok(false);
         }
     }
 
     if filetype.is_file() {
         fs::copy(source, dest)?;
-    } else if filetype.is_fifo() {
+        return Ok(true);
+    }
+
+    #[cfg(unix)]
+    if filetype.is_fifo() {
         let metadata_mode = metadata.permissions().mode();
         std::process::Command::new("mkfifo")
             .arg(dest)
             .arg("-m")
             .arg(metadata_mode.to_string())
             .output()?;
-    } else if filetype.is_symlink() {
-        let target = fs::read_link(source)?;
-        std::os::unix::fs::symlink(target, dest)?;
-    } else if let Err(e) = fs::copy(source, dest) {
-        // Special file: Try copying it as normal, but this probably won't work
-        writeln!(
-            stream,
-            "Non-regular file or directory: {}",
-            source.display()
-        )?;
-        if !util::prompt_yes("Permanently delete the file?", mode, stream)? {
-            return Err(e);
-        }
-        // Create a dummy file to act as a marker in the graveyard
-        let mut marker = fs::File::create(dest)?;
-        marker.write_all(
-            b"This is a marker for a file that was \
-                           permanently deleted.  Requiescat in pace.",
-        )?;
+        return Ok(true);
     }
 
-    Ok(())
+    if filetype.is_symlink() {
+        let target = fs::read_link(source)?;
+        symlink(target, dest)?;
+        return Ok(true);
+    }
+
+    match fs::copy(source, dest) {
+        Err(e) => {
+            // Special file: Try copying it as normal, but this probably won't work
+            writeln!(
+                stream,
+                "Non-regular file or directory: {}",
+                source.display()
+            )?;
+
+            if util::prompt_yes("Permanently delete the file?", mode, stream)? {
+                Ok(false)
+            } else {
+                Err(e)
+            }
+        }
+        Ok(_) => Ok(true),
+    }
+}
+
+fn default_graveyard() -> PathBuf {
+    let user = util::get_user();
+
+    #[cfg(unix)]
+    let base_path = "/tmp/graveyard";
+
+    #[cfg(target_os = "windows")]
+    let base_path = env::var("TEMP").unwrap_or_else(|_| "C:\\Windows\\Temp".to_string());
+
+    PathBuf::from(format!("{}-{}", base_path, user))
 }
