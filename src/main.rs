@@ -2,6 +2,7 @@ use clap::Parser;
 use std::io;
 use std::process::ExitCode;
 
+use rip2::args::Commands;
 use rip2::{args, completions, util};
 
 fn main() -> ExitCode {
@@ -10,12 +11,16 @@ fn main() -> ExitCode {
     let mode = util::ProductionMode;
 
     match &cli.command {
-        Some(args::Commands::Completions { shell }) => {
+        Some(Commands::Completions { shell }) => {
             let result = completions::generate_shell_completions(shell, &mut io::stdout());
             if result.is_err() {
                 eprintln!("{}", result.unwrap_err());
                 return ExitCode::FAILURE;
             }
+            return ExitCode::SUCCESS;
+        }
+        Some(Commands::Graveyard) => {
+            println!("{}", rip2::get_graveyard(None).display());
             return ExitCode::SUCCESS;
         }
         None => {}

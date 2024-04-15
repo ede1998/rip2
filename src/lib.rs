@@ -33,21 +33,7 @@ pub fn run(cli: Args, mode: impl util::TestingMode, stream: &mut impl Write) -> 
     // 2. Path pointed by the $GRAVEYARD variable
     // 3. $XDG_DATA_HOME/graveyard (only if XDG_DATA_HOME is defined)
     // 4. /tmp/graveyard-user
-    let graveyard: &PathBuf = &{
-        if let Some(flag) = cli.graveyard {
-            flag
-        } else if let Ok(env_graveyard) = env::var("RIP_GRAVEYARD") {
-            PathBuf::from(env_graveyard)
-        } else if let Ok(mut env_graveyard) = env::var("XDG_DATA_HOME") {
-            if !env_graveyard.ends_with(std::path::MAIN_SEPARATOR) {
-                env_graveyard.push(std::path::MAIN_SEPARATOR);
-            }
-            env_graveyard.push_str("graveyard");
-            PathBuf::from(env_graveyard)
-        } else {
-            default_graveyard()
-        }
-    };
+    let graveyard: &PathBuf = &get_graveyard(cli.graveyard);
 
     if !graveyard.exists() {
         fs::create_dir_all(graveyard)?;
@@ -439,7 +425,19 @@ pub fn copy_file(
     }
 }
 
-fn default_graveyard() -> PathBuf {
-    let user = util::get_user();
-    env::temp_dir().join(format!("graveyard-{}", user))
+pub fn get_graveyard(graveyard: Option<PathBuf>) -> PathBuf {
+    if let Some(flag) = graveyard {
+        flag
+    } else if let Ok(env_graveyard) = env::var("RIP_GRAVEYARD") {
+        PathBuf::from(env_graveyard)
+    } else if let Ok(mut env_graveyard) = env::var("XDG_DATA_HOME") {
+        if !env_graveyard.ends_with(std::path::MAIN_SEPARATOR) {
+            env_graveyard.push(std::path::MAIN_SEPARATOR);
+        }
+        env_graveyard.push_str("graveyard");
+        PathBuf::from(env_graveyard)
+    } else {
+        let user = util::get_user();
+        env::temp_dir().join(format!("graveyard-{}", user))
+    }
 }

@@ -17,7 +17,7 @@ pub struct Args {
     pub decompose: bool,
 
     /// Prints files that were deleted
-    /// in the current working directory
+    /// in the current directory
     #[arg(short, long)]
     pub seance: bool,
 
@@ -39,12 +39,14 @@ pub struct Args {
 #[derive(Subcommand, Debug)]
 pub enum Commands {
     /// Generate shell completions file
-    /// for the specified shell
     Completions {
         /// The shell to generate completions for
         #[arg(value_name = "SHELL")]
         shell: String,
     },
+
+    /// Print the graveyard path
+    Graveyard,
 }
 
 struct IsDefault {
