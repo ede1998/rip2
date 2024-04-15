@@ -9,7 +9,7 @@ macro_rules! debug {
     ($($arg:tt)*) => {};
 }
 #[cfg(feature = "testing")]
-use std::println as debug;
+use std::eprintln as debug;
 
 use crate::util;
 
