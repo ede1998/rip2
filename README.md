@@ -1,6 +1,6 @@
 <div align="center">
 
-# rip
+# rip2
 
 ### A safer, rust-based `rm`
 
@@ -13,7 +13,7 @@
 
 Deleted files get sent to the graveyard 🪦 (`/tmp/graveyard-$USER` by default, see [notes](#notes) on changing this) under their absolute path, giving you a chance to recover them 🧟. No data is overwritten. If files that share the same path are deleted, they will be renamed as numbered backups.
 
-This version is a fork-of-a-fork:
+This version, "rip2", is a fork-of-a-fork:
 
 1. [nivekuil/rip](https://github.com/nivekuil/rip), the original, which has been unmaintained since 2020.
 2. [StandingPadAnimation/rip](https://github.com/StandingPadAnimations/rip) who added a few features.
