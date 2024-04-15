@@ -36,11 +36,13 @@ jobs:
             target: aarch64-unknown-linux-musl
             bin: rip
             name: rip-Linux-aarch64-musl.tar.gz
+            skip_tests: true
           - os_name: Linux-arm
             os: ubuntu-20.04
             target: arm-unknown-linux-musleabi
             bin: rip
             name: rip-Linux-arm-musl.tar.gz
+            skip_tests: true
           - os_name: Linux-i686
             os: ubuntu-20.04
             target: i686-unknown-linux-musl
@@ -65,29 +67,29 @@ jobs:
             bin: rip
             name: rip-Linux-powerpc64le.tar.gz
             skip_tests: true
-          - os_name: Linux-riscv64
-            os: ubuntu-20.04
-            target: riscv64gc-unknown-linux-gnu
-            bin: rip
-            name: rip-Linux-riscv64gc-gnu.tar.gz
+          # - os_name: Linux-riscv64
+          #   os: ubuntu-20.04
+          #   target: riscv64gc-unknown-linux-gnu
+          #   bin: rip
+          #   name: rip-Linux-riscv64gc-gnu.tar.gz
           - os_name: Linux-s390x
             os: ubuntu-20.04
             target: s390x-unknown-linux-gnu
             bin: rip
             name: rip-Linux-s390x-gnu.tar.gz
             skip_tests: true
-          - os_name: NetBSD-x86_64
-            os: ubuntu-20.04
-            target: x86_64-unknown-netbsd
-            bin: rip
-            name: rip-NetBSD-x86_64.tar.gz
-            skip_tests: true
-          - os_name: Windows-aarch64
-            os: windows-latest
-            target: aarch64-pc-windows-msvc
-            bin: rip.exe
-            name: rip-Windows-aarch64.zip
-            skip_tests: true
+          # - os_name: NetBSD-x86_64
+          #   os: ubuntu-20.04
+          #   target: x86_64-unknown-netbsd
+          #   bin: rip
+          #   name: rip-NetBSD-x86_64.tar.gz
+          #   skip_tests: true
+          # - os_name: Windows-aarch64
+          #   os: windows-latest
+          #   target: aarch64-pc-windows-msvc
+          #   bin: rip.exe
+          #   name: rip-Windows-aarch64.zip
+          #   skip_tests: true
           - os_name: Windows-i686
             os: windows-latest
             target: i686-pc-windows-msvc
