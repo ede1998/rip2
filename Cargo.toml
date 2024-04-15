@@ -27,7 +27,6 @@ assert_cmd = "1.0"
 lazy_static = "1.4"
 predicates = "3.0"
 rand = "0.8"
-rexpect = "0.5"
 rstest = "0.18"
 tempfile = "3"
 
