@@ -3,9 +3,27 @@ use std::io::{Error, ErrorKind};
 use std::path::PathBuf;
 
 #[derive(Parser, Debug, Default)]
-#[command(version, about, long_about = None)]
+#[command(
+    name = "rip",
+    version,
+    about,
+    long_about = None,
+    help_template = "\
+Usage: rip [OPTIONS] [FILES]...
+       rip [SUBCOMMAND]
+
+Arguments:
+    [FILES]...  Files or directories to remove
+
+Options:
+{options}
+
+Subcommands:
+{subcommands}
+"
+)]
 pub struct Args {
-    /// File or directory to remove
+    /// Files or directories to remove
     pub targets: Vec<PathBuf>,
 
     /// Directory where deleted files rest
