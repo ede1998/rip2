@@ -125,7 +125,7 @@ pub fn process_in_stream(in_stream: impl Read) -> Result<bool, Error> {
 
     match char_result {
         Some('y') | Some('Y') => Ok(true),
-        Some('n') | Some('N') | None => Ok(false),
+        Some('n') | Some('N') | Some('\n') | None => Ok(false),
         Some('q') | Some('Q') => Err(Error::new(
             io::ErrorKind::Interrupted,
             "User requested to quit",
