@@ -5,12 +5,15 @@ use clap::{Parser, Subcommand};
 use std::io::{Error, ErrorKind};
 use std::path::PathBuf;
 
-const CMD_STYLE: Style = Style::new().bold();
+const CMD_STYLE: Style = Style::new().bold().fg_color(Some(Ansi(AnsiColor::BrightCyan)));
 const HEADER_STYLE: Style = Style::new()
     .bold()
-    .underline()
-    .fg_color(Some(Ansi(AnsiColor::Blue)));
-const PLACEHOLDER_STYLE: Style = Style::new().fg_color(Some(Ansi(AnsiColor::Green)));
+    .fg_color(Some(Ansi(AnsiColor::Green)));
+const PLACEHOLDER_STYLE: Style = Style::new().fg_color(Some(Ansi(AnsiColor::BrightCyan)));
+const STYLES: Styles = Styles::styled()
+    .literal(AnsiColor::BrightCyan.on_default().bold())
+    .placeholder(AnsiColor::BrightCyan.on_default());
+
 
 const OPTIONS_PLACEHOLDER: &str = "{options}";
 const SUBCOMMANDS_PLACEHOLDER: &str = "{subcommands}";
@@ -67,10 +70,6 @@ Print the graveyard path
         _ => unreachable!(),
     }
 }
-
-const STYLES: Styles = Styles::styled()
-    .literal(AnsiColor::Magenta.on_default())
-    .placeholder(AnsiColor::Green.on_default());
 
 #[derive(Parser, Debug, Default)]
 #[command(
