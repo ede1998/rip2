@@ -18,6 +18,7 @@ This version is a fork-of-a-fork:
     - Shell completions
     - Added a few unmerged PRs from the original repo
     - Bug fix for FIFO files
+    - Bug fix for seance
 
 ## Installation
 
