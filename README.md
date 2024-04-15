@@ -28,7 +28,9 @@ This version, "rip2", is a fork-of-a-fork:
 
 ## ⚰️ Installation
 
-First, [install Rust](https://doc.rust-lang.org/cargo/getting-started/installation.html).
+This package is supported on Linux, macOS, and Windows.
+
+To install it, first [install Rust](https://doc.rust-lang.org/cargo/getting-started/installation.html).
 
 Then, install this package with cargo:
 
