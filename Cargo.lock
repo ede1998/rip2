@@ -635,6 +635,7 @@ checksum = "e898588f33fdd5b9420719948f9f2a32c922a246964576f71ba7f24f80610fbc"
 name = "rip2"
 version = "0.5.0"
 dependencies = [
+ "anstyle",
  "assert_cmd",
  "chrono",
  "clap",

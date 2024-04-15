@@ -1,4 +1,4 @@
-use clap::{Args as _, ColorChoice, Command, FromArgMatches as _};
+use clap::{Args as _, Command, FromArgMatches as _};
 use std::env;
 use std::io;
 use std::process::ExitCode;
@@ -7,7 +7,7 @@ use rip2::args::Commands;
 use rip2::{args, completions, util};
 
 fn main() -> ExitCode {
-    let base_cmd = Command::new("rip").color(ColorChoice::Never);
+    let base_cmd = Command::new("rip");
     let cmd = args::Args::augment_args(base_cmd);
     let cli = args::Args::from_arg_matches(&cmd.get_matches()).unwrap();
 
