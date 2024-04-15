@@ -3,7 +3,7 @@ use rip2::completions;
 use rip2::util::TestMode;
 use rstest::rstest;
 use std::fs;
-use std::io::Cursor;
+use std::io::{Cursor, Error, ErrorKind};
 use std::path::PathBuf;
 use std::process;
 use tempfile::tempdir;
@@ -148,18 +148,24 @@ fn test_filetypes(
 }
 
 #[rstest]
-fn test_prompt_read(
-    #[values(
-        ("y", true),
-        ("Y", true),
-        ("n", false),
-        ("q", false),
-    )]
-    key: (&str, bool),
-) {
-    let input = Cursor::new(key.0);
+fn test_prompt_read(#[values("y", "Y", "n", "N", "q", "Q", "")] key: &str) {
+    let input = Cursor::new(key);
     let result = rip2::util::process_in_stream(input);
-    assert_eq!(result, key.1)
+    match key {
+        "y" | "Y" => assert!(result.unwrap()),
+        "n" | "N" => assert!(!result.unwrap()),
+        "q" | "Q" => {
+            let err = result.unwrap_err();
+            assert_eq!(err.kind(), ErrorKind::Interrupted);
+            assert_eq!(err.to_string(), "User requested to quit");
+        }
+        "" => {
+            let err = result.unwrap_err();
+            assert_eq!(err.kind(), ErrorKind::InvalidInput);
+            assert_eq!(err.to_string(), "Invalid input");
+        }
+        _ => {}
+    }
 }
 
 #[rstest]

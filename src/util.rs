@@ -95,6 +95,8 @@ impl TestingMode for TestMode {
 }
 
 /// Prompt for user input, returning True if the first character is 'y' or 'Y'
+/// Will create an error if given a 'q' or 'Q', equivalent to if the user
+/// had passed a SIGINT.
 pub fn prompt_yes(
     prompt: impl AsRef<str>,
     source: &impl TestingMode,
@@ -110,18 +112,26 @@ pub fn prompt_yes(
         return Ok(true);
     }
 
-    Ok(process_in_stream(io::stdin()))
+    process_in_stream(io::stdin())
 }
 
-pub fn process_in_stream(in_stream: impl Read) -> bool {
+pub fn process_in_stream(in_stream: impl Read) -> Result<bool, Error> {
     let buffered = BufReader::new(in_stream);
-    buffered
+    let char_result = buffered
         .bytes()
         .next()
         .and_then(|c| c.ok())
-        .map(|c| c as char)
-        .map(|c| (c == 'y' || c == 'Y'))
-        .unwrap_or(false)
+        .map(|c| c as char);
+
+    match char_result {
+        Some('y') | Some('Y') => Ok(true),
+        Some('n') | Some('N') => Ok(false),
+        Some('q') | Some('Q') => Err(Error::new(
+            io::ErrorKind::Interrupted,
+            "User requested to quit",
+        )),
+        _ => Err(Error::new(io::ErrorKind::InvalidInput, "Invalid input")),
+    }
 }
 
 /// Add a numbered extension to duplicate filenames to avoid overwriting files.
