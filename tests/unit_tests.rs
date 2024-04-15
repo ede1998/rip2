@@ -138,10 +138,8 @@ fn test_filetypes(
             assert!(ftype.unwrap().is_symlink());
         }
         "socket" => {
-            assert!(dest_path.exists());
-            assert!(ftype.unwrap().is_file());
-            let contents = fs::read_to_string(&dest_path).unwrap();
-            assert!(contents.contains("marker for a file that was permanently deleted."));
+            // Socket files are not copied, so are instead simply deleted
+            assert!(!dest_path.exists());
         }
         _ => {}
     }

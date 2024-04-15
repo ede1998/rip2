@@ -520,7 +520,7 @@ pub fn copy_file(
                 Err(e)
             }
         }
-        Ok(_) => Ok(true)
+        Ok(_) => Ok(true),
     }
 }
 
