@@ -1,4 +1,4 @@
-# RIP ⚰️ v2
+# RIP ⚰️ – a safer rust-based rm
 
 [![Test](https://github.com/MilesCranmer/rip2/actions/workflows/test.yml/badge.svg)](https://github.com/MilesCranmer/rip2/actions/workflows/test.yml)
 [![Coverage Status](https://coveralls.io/repos/github/MilesCranmer/rip2/badge.svg?branch=master)](https://coveralls.io/github/MilesCranmer/rip2?branch=master)
