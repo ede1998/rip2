@@ -1,7 +1,9 @@
 use lazy_static::lazy_static;
+use predicates::str::is_match;
 use rand::distributions::Alphanumeric;
 use rand::Rng;
 use rip2::args::Args;
+use rip2::record;
 use rip2::util::TestMode;
 use rip2::{self, util};
 use rstest::rstest;
@@ -11,12 +13,6 @@ use std::path::PathBuf;
 use std::sync::{Mutex, MutexGuard};
 use std::{env, ffi, iter};
 use tempfile::{tempdir, TempDir};
-
-#[cfg(unix)]
-use predicates::str::is_match;
-
-#[cfg(unix)]
-use rip2::record;
 
 lazy_static! {
     static ref GLOBAL_LOCK: Mutex<()> = Mutex::new(());
@@ -566,7 +562,6 @@ fn test_cli(
     }
 }
 
-#[cfg(unix)]
 #[rstest]
 fn issue_0018() {
     let _env_lock = aquire_lock();
