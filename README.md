@@ -31,7 +31,7 @@ This version is a fork-of-a-fork:
 You can install this package from source with:
 
 ```bash
-$ cargo install rip2
+$ cargo install --locked rip2
 ```
 
 No binaries are made available at this time.
