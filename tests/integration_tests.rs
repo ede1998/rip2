@@ -1,10 +1,9 @@
 use lazy_static::lazy_static;
-use predicates::str::is_match;
 use rand::distributions::Alphanumeric;
 use rand::Rng;
 use rip2::args::Args;
 use rip2::util::TestMode;
-use rip2::{self, record, util};
+use rip2::{self, util};
 use rstest::rstest;
 use std::fs;
 use std::io::{ErrorKind, Write};
@@ -12,6 +11,12 @@ use std::path::PathBuf;
 use std::sync::{Mutex, MutexGuard};
 use std::{env, ffi, iter};
 use tempfile::{tempdir, TempDir};
+
+#[cfg(unix)]
+use predicates::str::is_match;
+
+#[cfg(unix)]
+use rip2::record;
 
 lazy_static! {
     static ref GLOBAL_LOCK: Mutex<()> = Mutex::new(());
@@ -419,14 +424,13 @@ where
     S: AsRef<ffi::OsStr>,
 {
     let mut cmd = assert_cmd::Command::cargo_bin("rip").unwrap();
-    let mut cmd_ref = &mut cmd;
-    cmd_ref.env_clear();
     if let Some(cwd) = cwd {
-        cmd_ref.current_dir(cwd);
+        cmd.current_dir(cwd);
     }
     for arg in args {
-        cmd_ref = cmd_ref.arg(arg);
+        cmd.arg(arg);
     }
+    cmd.env("__RIP_ALLOW_RENAME", "false");
     cmd
 }
 
@@ -589,7 +593,6 @@ fn issue_0018() {
             ],
             Some(&test_env.src),
         )
-        .env("__RIP_ALLOW_RENAME", "false")
         .write_stdin("\n")
         .assert()
         .stdout(is_match("About to copy a big file").unwrap())
@@ -623,7 +626,6 @@ fn issue_0018() {
             ],
             Some(&test_env.src),
         )
-        .env("__RIP_ALLOW_RENAME", "false")
         .write_stdin("q\n")
         .assert()
         .stdout(is_match("gnu_meta.zip: file, ").unwrap());
@@ -662,7 +664,6 @@ fn issue_0018() {
             ],
             Some(&test_env.src),
         )
-        .env("__RIP_ALLOW_RENAME", "false")
         .write_stdin("y\n")
         .assert()
         .stdout(is_match("About to copy a big file").unwrap())
