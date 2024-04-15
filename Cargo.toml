@@ -30,9 +30,6 @@ rand = "0.8"
 rstest = "0.18"
 tempfile = "3"
 
-[features]
-testing = []
-
 [profile.release]
 opt-level = 3
 

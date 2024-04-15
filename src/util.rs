@@ -7,15 +7,6 @@ use std::path::Prefix::Disk;
 use std::path::{Component, Path, PathBuf};
 use std::str::from_utf8;
 
-#[cfg(not(feature = "testing"))]
-macro_rules! debug {
-    // Empty macro regardless of arguments
-    ($($arg:tt)*) => {};
-}
-
-#[cfg(feature = "testing")]
-use std::eprintln as debug;
-
 fn hash_component(c: &Component) -> String {
     let mut hasher = DefaultHasher::new();
     c.hash(&mut hasher);
@@ -35,11 +26,6 @@ fn str_component(c: &Component) -> String {
 /// Concatenate two paths, even if the right argument is an absolute path.
 pub fn join_absolute<A: AsRef<Path>, B: AsRef<Path>>(left: A, right: B) -> PathBuf {
     let (left, right) = (left.as_ref(), right.as_ref());
-    debug!(
-        "->run->____->______->canonicalize: Joining {:?} and {:?}",
-        left, right
-    );
-
     let mut result = left.to_path_buf();
     for c in right.components() {
         match c {
@@ -55,8 +41,6 @@ pub fn join_absolute<A: AsRef<Path>, B: AsRef<Path>>(left: A, right: B) -> PathB
             }
         }
     }
-
-    debug!("->run->____->______->canonicalize: Result: {:?}", result);
     result
 }
 

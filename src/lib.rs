@@ -5,14 +5,6 @@ use std::path::{Path, PathBuf};
 use std::{env, fs};
 use walkdir::WalkDir;
 
-#[cfg(not(feature = "testing"))]
-macro_rules! debug {
-    // Empty macro regardless of arguments
-    ($($arg:tt)*) => {};
-}
-#[cfg(feature = "testing")]
-use std::eprintln as debug;
-
 // Platform-specific imports
 #[cfg(unix)]
 use std::os::unix::fs::{symlink, FileTypeExt, PermissionsExt};
@@ -34,7 +26,6 @@ pub const BIG_FILE_THRESHOLD: u64 = 500000000; // 500 MB
 
 pub fn run(cli: Args, mode: impl util::TestingMode, stream: &mut impl Write) -> Result<(), Error> {
     args::validate_args(&cli)?;
-    debug!("->run");
     // This selects the location of deleted
     // files based on the following order (from
     // first choice to last):
@@ -57,13 +48,8 @@ pub fn run(cli: Args, mode: impl util::TestingMode, stream: &mut impl Write) -> 
             default_graveyard()
         }
     };
-    debug!("->run: Graveyard set to: {}", graveyard.display());
 
     if !graveyard.exists() {
-        debug!(
-            "->run->nograve: Creating graveyard at {}",
-            graveyard.display()
-        );
         fs::create_dir_all(graveyard)?;
 
         #[cfg(unix)]
@@ -71,17 +57,14 @@ pub fn run(cli: Args, mode: impl util::TestingMode, stream: &mut impl Write) -> 
             let metadata = graveyard.metadata()?;
             let mut permissions = metadata.permissions();
             permissions.set_mode(0o700);
-            debug!("->run->nograve: Setting permissions on graveyard to 700");
         }
         // TODO: Default permissions on windows should be good, but need to double-check.
     }
 
     // If the user wishes to restore everything
     if cli.decompose {
-        debug!("->run->decompose: Decomposing graveyard");
         if util::prompt_yes("Really unlink the entire graveyard?", &mode, stream)? {
             fs::remove_dir_all(graveyard)?;
-            debug!("->run->decompose: Finished removing all directories");
         }
         return Ok(());
     }
@@ -89,62 +72,36 @@ pub fn run(cli: Args, mode: impl util::TestingMode, stream: &mut impl Write) -> 
     // Stores the deleted files
     let record = Record::new(graveyard);
     let cwd = &env::current_dir()?;
-    debug!("->run: Current working directory: {}", cwd.display());
-    debug!("->run: Record path: {:?}", record);
 
     if let Some(mut graves_to_exhume) = cli.unbury {
         // Vector to hold the grave path of items we want to unbury.
         // This will be used to determine which items to remove from the
         // record following the unbury.
         // Initialize it with the targets passed to -r
-        debug!(
-            "->run->unbury: Entered unbury mode with {:?} explicitly passed",
-            graves_to_exhume
-        );
 
         // If -s is also passed, push all files found by seance onto
         // the graves_to_exhume.
         if cli.seance && record.open().is_ok() {
-            debug!("->run->unbury->seance: Seance mode enabled");
             let gravepath = util::join_absolute(graveyard, dunce::canonicalize(cwd)?);
-            debug!(
-                "->run->unbury->seance: Checking for graves in {:?}",
-                gravepath
-            );
             for grave in record.seance(&gravepath) {
                 graves_to_exhume.push(grave);
             }
-            debug!(
-                "->run->unbury->seance: Found graves to exhume: {:?}",
-                graves_to_exhume
-            );
         }
 
         // Otherwise, add the last deleted file
         if graves_to_exhume.is_empty() {
-            debug!("->run->unbury: No graves passed, checking for last buried file");
             if let Ok(s) = record.get_last_bury() {
                 graves_to_exhume.push(s);
-                debug!(
-                    "->run->unbury: Found last buried file: {:?}",
-                    graves_to_exhume
-                );
             }
         }
 
         // Go through the graveyard and exhume all the graves
         for line in record.lines_of_graves(&graves_to_exhume) {
             let entry = RecordItem::new(&line);
-            debug!("->run->unbury->target: Exhuming: {:?}", entry);
             let orig: PathBuf = match util::symlink_exists(entry.orig) {
                 true => util::rename_grave(entry.orig),
                 false => PathBuf::from(entry.orig),
             };
-            debug!(
-                "->run->unbury->target: Executing move_target from {} to {}",
-                entry.dest.display(),
-                orig.display()
-            );
             move_target(entry.dest, &orig, &mode, stream).map_err(|e| {
                 Error::new(
                     e.kind(),
@@ -155,7 +112,6 @@ pub fn run(cli: Args, mode: impl util::TestingMode, stream: &mut impl Write) -> 
                     ),
                 )
             })?;
-            debug!("->run->unbury->target: Moved target to {}", orig.display());
             writeln!(
                 stream,
                 "Returned {} to {}",
@@ -163,30 +119,24 @@ pub fn run(cli: Args, mode: impl util::TestingMode, stream: &mut impl Write) -> 
                 orig.display()
             )?;
         }
-        debug!("->run->unbury: Finished exhuming graves");
         record.log_exhumed_graves(&graves_to_exhume)?;
 
         return Ok(());
     }
 
     if cli.seance {
-        debug!("->run->seance: Seance mode enabled");
         let gravepath = util::join_absolute(graveyard, dunce::canonicalize(cwd)?);
-        debug!("->run->seance: Checking for graves in {:?}", gravepath);
         for grave in record.seance(&gravepath) {
-            debug!("->run->seance: Found grave: {}", grave.display());
             writeln!(stream, "{}", grave.display())?;
         }
         return Ok(());
     }
 
     if cli.targets.is_empty() {
-        debug!("->run->help: Found no targets, printing help");
         Args::command().print_help()?;
         return Ok(());
     }
 
-    debug!("->run->bury: Starting to bury targets");
     for target in cli.targets {
         bury_target(&target, graveyard, &record, cwd, cli.inspect, &mode, stream)?;
     }
@@ -204,7 +154,6 @@ fn bury_target(
     stream: &mut impl Write,
 ) -> Result<(), Error> {
     // Check if source exists
-    debug!("->run->bury->target: Burying target: {}", target.display());
     let metadata = fs::symlink_metadata(target).map_err(|_| {
         Error::new(
             ErrorKind::NotFound,
@@ -214,36 +163,21 @@ fn bury_target(
             ),
         )
     })?;
-    debug!(
-        "->run->bury->target: Found metadata for target: {:?}",
-        metadata
-    );
     // Canonicalize the path unless it's a symlink
     let source = &if !metadata.file_type().is_symlink() {
-        debug!("->run->bury->target->canonicalize: Not a symlink, canonicalizing path");
         dunce::canonicalize(cwd.join(target))
             .map_err(|e| Error::new(e.kind(), "Failed to canonicalize path"))?
     } else {
-        debug!("->run->bury->target->canonicalize: Symlink detected, using path as is");
         cwd.join(target)
     };
-    debug!(
-        "->run->bury->target->canonicalize: Using canonicalized path for target: {}",
-        source.display()
-    );
 
     if inspect {
-        debug!("->run->bury->target->inspect: Performing inspection before bury");
         let moved_to_graveyard = do_inspection(target, source, metadata, mode, stream)?;
         if moved_to_graveyard {
             return Ok(());
         }
     }
 
-    debug!(
-        "->run->bury->target: Checking if {} is already in the graveyard",
-        source.display()
-    );
     // If rip is called on a file already in the graveyard, prompt
     // to permanently delete it instead.
     if source.starts_with(graveyard) {
@@ -264,7 +198,6 @@ fn bury_target(
         }
     }
 
-    debug!("->run->bury->target: Calculating destination path in graveyard");
     let dest: &Path = &{
         let dest = util::join_absolute(graveyard, source);
         // Resolve a name conflict if necessary
@@ -274,10 +207,6 @@ fn bury_target(
             dest
         }
     };
-    debug!(
-        "->run->bury->target->move: Will move target to: {}",
-        dest.display()
-    );
 
     let moved = move_target(source, dest, mode, stream).map_err(|e| {
         fs::remove_dir_all(dest).ok();
@@ -300,7 +229,6 @@ fn do_inspection(
     stream: &mut impl Write,
 ) -> Result<bool, Error> {
     if metadata.is_dir() {
-        debug!("Detected target to be a directory; printing content summary");
         // Get the size of the directory and all its contents
         writeln!(
             stream,
@@ -316,7 +244,6 @@ fn do_inspection(
             )
         )?;
 
-        debug!("Printing first {} files in directory", FILES_TO_INSPECT);
         // Print the first few top-level files in the directory
         for entry in WalkDir::new(source)
             .min_depth(1)
@@ -328,7 +255,6 @@ fn do_inspection(
             writeln!(stream, "{}", entry.path().display())?;
         }
     } else {
-        debug!("Detected target to be a file");
         writeln!(
             stream,
             "{}: file, {}",
@@ -337,7 +263,6 @@ fn do_inspection(
         )?;
         // Read the file and print the first few lines
         if let Ok(source_file) = fs::File::open(source) {
-            debug!("Printing first {} lines of file", LINES_TO_INSPECT);
             for line in BufReader::new(source_file)
                 .lines()
                 .take(LINES_TO_INSPECT)
@@ -367,17 +292,11 @@ pub fn move_target(
 ) -> Result<bool, Error> {
     // Try a simple rename, which will only work within the same mount point.
     // Trying to rename across filesystems will throw errno 18.
-    debug!(
-        "->run->bury->target->move: Attempting a simple rename from {} to {}",
-        target.display(),
-        dest.display()
-    );
     if util::allow_rename() && fs::rename(target, dest).is_ok() {
         return Ok(true);
     }
 
     // If that didn't work, then we need to copy and rm.
-    debug!("->run->bury->target->move: Simple rename failed, attempting to copy and remove");
     fs::create_dir_all(
         dest.parent()
             .ok_or_else(|| Error::new(ErrorKind::NotFound, "Could not get parent of dest!"))?,
