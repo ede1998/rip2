@@ -654,6 +654,7 @@ fn issue_0018() {
             &test_env.graveyard,
             test_env.src.join("gnu_meta.zip").canonicalize().unwrap(),
         );
+
         cli_runner(
             [
                 "--graveyard",

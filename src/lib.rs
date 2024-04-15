@@ -283,13 +283,15 @@ fn bury_target(
         dest.display()
     );
 
-    move_target(source, dest, mode, stream).map_err(|e| {
+    let moved = move_target(source, dest, mode, stream).map_err(|e| {
         fs::remove_dir_all(dest).ok();
         Error::new(e.kind(), "Failed to bury file")
     })?;
 
-    // Clean up any partial buries due to permission error
-    record.write_log(source, dest)?;
+    if moved {
+        // Clean up any partial buries due to permission error
+        record.write_log(source, dest)?;
+    }
 
     Ok(())
 }
@@ -358,12 +360,15 @@ fn do_inspection(
     )?)
 }
 
+/// Move a target to a given destination, copying if necessary.
+/// Returns true if the target was moved, false if it was not (due to
+/// user input)
 pub fn move_target(
     target: &Path,
     dest: &Path,
     mode: &impl util::TestingMode,
     stream: &mut impl Write,
-) -> Result<(), Error> {
+) -> Result<bool, Error> {
     // Try a simple rename, which will only work within the same mount point.
     // Trying to rename across filesystems will throw errno 18.
     debug!(
@@ -372,7 +377,7 @@ pub fn move_target(
         dest.display()
     );
     if util::allow_rename() && fs::rename(target, dest).is_ok() {
-        return Ok(());
+        return Ok(true);
     }
 
     // If that didn't work, then we need to copy and rm.
@@ -381,10 +386,11 @@ pub fn move_target(
         dest.parent()
             .ok_or_else(|| Error::new(ErrorKind::NotFound, "Could not get parent of dest!"))?,
     )?;
+
     if fs::symlink_metadata(target)?.is_dir() {
-        move_dir(target, dest, mode, stream)?;
+        move_dir(target, dest, mode, stream)
     } else {
-        copy_file(target, dest, mode, stream).map_err(|e| {
+        let moved = copy_file(target, dest, mode, stream).map_err(|e| {
             Error::new(
                 e.kind(),
                 format!(
@@ -400,17 +406,18 @@ pub fn move_target(
                 format!("Failed to remove file: {}", target.display()),
             )
         })?;
+        Ok(moved)
     }
-
-    Ok(())
 }
 
+/// Move a target which is a directory to a given destination, copying if necessary.
+/// Returns true *always*, as the creation of the directory is enough to mark it as successful.
 fn move_dir(
     target: &Path,
     dest: &Path,
     mode: &impl util::TestingMode,
     stream: &mut impl Write,
-) -> Result<(), Error> {
+) -> Result<bool, Error> {
     // Walk the source, creating directories and copying files as needed
     for entry in WalkDir::new(target).into_iter().filter_map(|e| e.ok()) {
         // Path without the top-level directory
@@ -452,7 +459,7 @@ fn move_dir(
         )
     })?;
 
-    Ok(())
+    Ok(true)
 }
 
 pub fn copy_file(
@@ -460,7 +467,7 @@ pub fn copy_file(
     dest: &Path,
     mode: &impl util::TestingMode,
     stream: &mut impl Write,
-) -> Result<(), Error> {
+) -> Result<bool, Error> {
     let metadata = fs::symlink_metadata(source)?;
     let filetype = metadata.file_type();
 
@@ -472,13 +479,13 @@ pub fn copy_file(
             util::humanize_bytes(metadata.len())
         )?;
         if util::prompt_yes("Permanently delete this file instead?", mode, stream)? {
-            return Ok(());
+            return Ok(false);
         }
     }
 
     if filetype.is_file() {
         fs::copy(source, dest)?;
-        return Ok(());
+        return Ok(true);
     }
 
     #[cfg(unix)]
@@ -489,34 +496,32 @@ pub fn copy_file(
             .arg("-m")
             .arg(metadata_mode.to_string())
             .output()?;
-        return Ok(());
+        return Ok(true);
     }
 
     if filetype.is_symlink() {
         let target = fs::read_link(source)?;
         symlink(target, dest)?;
-        return Ok(());
+        return Ok(true);
     }
 
-    if let Err(e) = fs::copy(source, dest) {
-        // Special file: Try copying it as normal, but this probably won't work
-        writeln!(
-            stream,
-            "Non-regular file or directory: {}",
-            source.display()
-        )?;
-        if !util::prompt_yes("Permanently delete the file?", mode, stream)? {
-            return Err(e);
+    match fs::copy(source, dest) {
+        Err(e) => {
+            // Special file: Try copying it as normal, but this probably won't work
+            writeln!(
+                stream,
+                "Non-regular file or directory: {}",
+                source.display()
+            )?;
+
+            if util::prompt_yes("Permanently delete the file?", mode, stream)? {
+                Ok(false)
+            } else {
+                Err(e)
+            }
         }
-        // Create a dummy file to act as a marker in the graveyard
-        let mut marker = fs::File::create(dest)?;
-        marker.write_all(
-            b"This is a marker for a file that was \
-                           permanently deleted.  Requiescat in pace.",
-        )?;
+        Ok(_) => Ok(true)
     }
-
-    Ok(())
 }
 
 fn default_graveyard() -> PathBuf {
