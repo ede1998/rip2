@@ -44,10 +44,11 @@ No binaries are made available at this time.
 ## Usage
 
 ```text
-Usage: rip [OPTIONS] [TARGETS]... [SUB-COMMAND]
+Usage: rip [OPTIONS] [FILES]...
+       rip [SUBCOMMAND]
 
 Arguments:
-  [TARGETS]...  File or directory to remove
+    [FILES]...  Files and directories to remove
 
 Options:
       --graveyard <GRAVEYARD>  Directory where deleted files rest

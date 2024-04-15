@@ -82,7 +82,7 @@ const STYLES: Styles = Styles::styled()
     help_template = help_template("rip"),
 )]
 pub struct Args {
-    /// Files or directories to remove
+    /// Files and directories to remove
     pub targets: Vec<PathBuf>,
 
     /// Directory where deleted files rest
@@ -115,6 +115,7 @@ pub struct Args {
 
 #[derive(Subcommand, Debug)]
 pub enum Commands {
+    /// Generate shell completions file
     #[command(styles=STYLES, help_template=help_template("completions"))]
     Completions {
         /// The shell to generate completions for
@@ -122,6 +123,7 @@ pub enum Commands {
         shell: String,
     },
 
+    /// Print the graveyard path
     #[command(styles=STYLES, help_template=help_template("graveyard"))]
     Graveyard {
         /// Get the graveyard subdirectory
