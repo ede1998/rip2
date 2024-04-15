@@ -375,18 +375,13 @@ pub fn move_target(
         return Ok(());
     }
 
+    // If that didn't work, then we need to copy and rm.
     debug!("->run->bury->target->move: Simple rename failed, attempting to copy and remove");
-    // If that didn't work, then copy and rm.
-    {
-        let parent = dest
-            .parent()
-            .ok_or_else(|| Error::new(ErrorKind::NotFound, "Could not get parent of dest!"))?;
-
-        fs::create_dir_all(parent)?
-    }
-
-    let sym_link_data = fs::symlink_metadata(target)?;
-    if sym_link_data.is_dir() {
+    fs::create_dir_all(
+        dest.parent()
+            .ok_or_else(|| Error::new(ErrorKind::NotFound, "Could not get parent of dest!"))?,
+    )?;
+    if fs::symlink_metadata(target)?.is_dir() {
         move_dir(target, dest, mode, stream)?;
     } else {
         copy_file(target, dest, mode, stream).map_err(|e| {
