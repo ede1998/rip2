@@ -106,14 +106,12 @@ pub fn run(cli: Args, mode: impl util::TestingMode, stream: &mut impl Write) -> 
         // the graves_to_exhume.
         if cli.seance && record.open().is_ok() {
             debug!("->run->unbury->seance: Seance mode enabled");
-            let gravepath = util::join_absolute(graveyard, cwd)
-                .to_string_lossy()
-                .into_owned();
+            let gravepath = util::join_absolute(graveyard, dunce::canonicalize(&cwd)?);
             debug!(
-                "->run->unbury->seance: Checking for graves in {}",
+                "->run->unbury->seance: Checking for graves in {:?}",
                 gravepath
             );
-            for grave in record.seance(gravepath) {
+            for grave in record.seance(&gravepath) {
                 graves_to_exhume.push(grave);
             }
             debug!(
@@ -173,12 +171,10 @@ pub fn run(cli: Args, mode: impl util::TestingMode, stream: &mut impl Write) -> 
 
     if cli.seance {
         debug!("->run->seance: Seance mode enabled");
-        let gravepath = util::join_absolute(graveyard, cwd);
-        debug!(
-            "->run->seance: Checking for graves in {}",
-            gravepath.display()
-        );
-        for grave in record.seance(gravepath.to_string_lossy()) {
+        let gravepath = util::join_absolute(graveyard, dunce::canonicalize(&cwd)?);
+        debug!("->run->seance: Checking for graves in {:?}", gravepath);
+        for grave in record.seance(&gravepath) {
+            debug!("->run->seance: Found grave: {}", grave.display());
             writeln!(stream, "{}", grave.display())?;
         }
         return Ok(());
