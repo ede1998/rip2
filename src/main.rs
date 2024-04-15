@@ -1,4 +1,5 @@
 use clap::Parser;
+use std::env;
 use std::io;
 use std::process::ExitCode;
 
@@ -19,8 +20,15 @@ fn main() -> ExitCode {
             }
             return ExitCode::SUCCESS;
         }
-        Some(Commands::Graveyard) => {
-            println!("{}", rip2::get_graveyard(None).display());
+        Some(Commands::Graveyard { seance }) => {
+            let graveyard = rip2::get_graveyard(None);
+            if *seance {
+                let cwd = &env::current_dir().unwrap();
+                let gravepath = util::join_absolute(graveyard, dunce::canonicalize(cwd).unwrap());
+                println!("{}", gravepath.display());
+            } else {
+                println!("{}", graveyard.display());
+            }
             return ExitCode::SUCCESS;
         }
         None => {}

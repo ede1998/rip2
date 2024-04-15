@@ -678,11 +678,25 @@ fn issue_0018() {
 }
 
 #[rstest]
-fn test_graveyard_subcommand() {
+fn test_graveyard_subcommand(
+    #[values(false, true)] seance: bool,
+) {
+    let _env_lock = aquire_lock();
+
     let expected_graveyard = rip2::get_graveyard(None);
-    let expected_graveyard_str = format!("{}\n", expected_graveyard.display());
-    cli_runner(["graveyard"], None)
+    let cwd = &env::current_dir().unwrap();
+    let expected_gravepath = util::join_absolute(&expected_graveyard, dunce::canonicalize(cwd).unwrap());
+    let expected_str = if seance {
+        format!("{}\n", expected_gravepath.display())
+    } else {
+        format!("{}\n", expected_graveyard.display())
+    };
+    let mut args = vec!["graveyard"];
+    if seance {
+        args.push("-s");
+    }
+    cli_runner(args, None)
         .assert()
         .success()
-        .stdout(is_match(expected_graveyard_str).unwrap());
+        .stdout(expected_str);
 }

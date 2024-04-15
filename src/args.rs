@@ -46,7 +46,12 @@ pub enum Commands {
     },
 
     /// Print the graveyard path
-    Graveyard,
+    Graveyard {
+        /// Get the graveyard subdirectory
+        /// of the current directory
+        #[arg(short, long)]
+        seance: bool,
+    },
 }
 
 struct IsDefault {
