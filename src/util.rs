@@ -14,7 +14,7 @@ macro_rules! debug {
 }
 
 #[cfg(feature = "testing")]
-use std::println as debug;
+use std::eprintln as debug;
 
 fn hash_component(c: &Component) -> String {
     let mut hasher = DefaultHasher::new();
