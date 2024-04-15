@@ -1,9 +1,10 @@
-use assert_cmd::Command;
+use lazy_static::lazy_static;
+use predicates::str::is_match;
 use rand::distributions::Alphanumeric;
 use rand::Rng;
 use rip2::args::Args;
 use rip2::util::TestMode;
-use rip2::{self, util};
+use rip2::{self, record, util};
 use rstest::rstest;
 use std::fs;
 use std::io::{ErrorKind, Write};
@@ -11,8 +12,6 @@ use std::path::PathBuf;
 use std::sync::{Mutex, MutexGuard};
 use std::{env, ffi, iter};
 use tempfile::{tempdir, TempDir};
-
-use lazy_static::lazy_static;
 
 lazy_static! {
     static ref GLOBAL_LOCK: Mutex<()> = Mutex::new(());
@@ -414,12 +413,12 @@ fn test_same_file_twice() {
     assert!(err_msg.contains("no such file or directory"));
 }
 
-fn cli_runner<I, S>(args: I, cwd: Option<&PathBuf>) -> Command
+fn cli_runner<I, S>(args: I, cwd: Option<&PathBuf>) -> assert_cmd::Command
 where
     I: IntoIterator<Item = S>,
     S: AsRef<ffi::OsStr>,
 {
-    let mut cmd = Command::cargo_bin("rip").unwrap();
+    let mut cmd = assert_cmd::Command::cargo_bin("rip").unwrap();
     let mut cmd_ref = &mut cmd;
     cmd_ref.env_clear();
     if let Some(cwd) = cwd {
@@ -431,7 +430,7 @@ where
     cmd
 }
 
-fn quick_cmd_output(cmd: &mut Command) -> String {
+fn quick_cmd_output(cmd: &mut assert_cmd::Command) -> String {
     String::from_utf8(cmd.output().unwrap().stdout).unwrap()
 }
 
@@ -561,4 +560,124 @@ fn test_cli(
         }
         _ => unreachable!(),
     }
+}
+
+#[cfg(unix)]
+#[rstest]
+fn issue_0018() {
+    let _env_lock = aquire_lock();
+    let test_env = TestEnv::new();
+
+    // Make a big file
+    {
+        let size = rip2::BIG_FILE_THRESHOLD + 1;
+        let file = fs::File::create(test_env.src.join("uu_meta.zip")).unwrap();
+        file.set_len(size).unwrap();
+    }
+
+    // rip it and hit return to bury it anyways
+    {
+        let expected_graveyard_path = util::join_absolute(
+            &test_env.graveyard,
+            test_env.src.join("uu_meta.zip").canonicalize().unwrap(),
+        );
+        // TODO: update `.canonicalize()` to dunce
+        cli_runner(
+            [
+                "--graveyard",
+                test_env.graveyard.to_str().unwrap(),
+                "uu_meta.zip",
+            ],
+            Some(&test_env.src),
+        )
+        .env("__RIP_ALLOW_RENAME", "false")
+        .write_stdin("\n")
+        .assert()
+        .stdout(is_match("About to copy a big file").unwrap())
+        .stdout(is_match("delete this file instead?").unwrap())
+        .stdout(is_match("y/N").unwrap());
+
+        // Expect it to be buried
+        assert!(!test_env.src.join("uu_meta.zip").exists());
+        assert!(expected_graveyard_path.exists());
+    }
+
+    // Make another big file
+    {
+        let size = rip2::BIG_FILE_THRESHOLD + 1;
+        let file = fs::File::create(test_env.src.join("gnu_meta.zip")).unwrap();
+        file.set_len(size).unwrap();
+    }
+
+    // rip it with interactive mode on, but quit
+    {
+        let expected_graveyard_path = util::join_absolute(
+            &test_env.graveyard,
+            test_env.src.join("gnu_meta.zip").canonicalize().unwrap(),
+        );
+        cli_runner(
+            [
+                "--graveyard",
+                test_env.graveyard.to_str().unwrap(),
+                "-i",
+                "gnu_meta.zip",
+            ],
+            Some(&test_env.src),
+        )
+        .env("__RIP_ALLOW_RENAME", "false")
+        .write_stdin("q\n")
+        .assert()
+        .stdout(is_match("gnu_meta.zip: file, ").unwrap());
+
+        // Expect it to remain in-place:
+        assert!(test_env.src.join("gnu_meta.zip").exists());
+        // And not in the graveyard:
+        assert!(!expected_graveyard_path.exists());
+
+        // The graveyard record should *only* reference uu_meta.zip:
+        let record_contents = fs::read_to_string(test_env.graveyard.join(record::RECORD)).unwrap();
+        assert!(record_contents.contains("uu_meta.zip"));
+        assert!(!record_contents.contains("gnu_meta.zip"));
+
+        // And give this for the last bury
+        let record = record::Record::new(&test_env.graveyard);
+        let last_bury = record.get_last_bury().unwrap();
+        assert!(last_bury.ends_with("uu_meta.zip"));
+    }
+
+    // rip it again but without -i
+    {
+        // Should still be there
+        assert!(test_env.src.join("gnu_meta.zip").exists());
+
+        let expected_graveyard_path = util::join_absolute(
+            &test_env.graveyard,
+            test_env.src.join("gnu_meta.zip").canonicalize().unwrap(),
+        );
+
+        cli_runner(
+            [
+                "--graveyard",
+                test_env.graveyard.to_str().unwrap(),
+                "gnu_meta.zip",
+            ],
+            Some(&test_env.src),
+        )
+        .env("__RIP_ALLOW_RENAME", "false")
+        .write_stdin("y\n")
+        .assert()
+        .stdout(is_match("About to copy a big file").unwrap())
+        .stdout(is_match("delete this file instead?").unwrap())
+        .stdout(is_match("y/N").unwrap());
+
+        // Expect it to be permanently deleted
+        assert!(!test_env.src.join("gnu_meta.zip").exists());
+        assert!(!expected_graveyard_path.exists());
+
+        // The record should not reference it anymore either
+        let record_contents = fs::read_to_string(test_env.graveyard.join(record::RECORD)).unwrap();
+        assert!(!record_contents.contains("gnu_meta.zip"));
+    }
+
+    return;
 }
