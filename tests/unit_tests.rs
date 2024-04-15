@@ -148,18 +148,18 @@ fn test_filetypes(
 }
 
 #[rstest]
-fn test_prompt_read(#[values("y", "Y", "n", "N", "q", "Q", "")] key: &str) {
+fn test_prompt_read(#[values("y", "Y", "n", "N", "q", "Q", "k")] key: &str) {
     let input = Cursor::new(key);
     let result = rip2::util::process_in_stream(input);
     match key {
         "y" | "Y" => assert!(result.unwrap()),
-        "n" | "N" => assert!(!result.unwrap()),
+        "n" | "N" | "" => assert!(!result.unwrap()),
         "q" | "Q" => {
             let err = result.unwrap_err();
             assert_eq!(err.kind(), ErrorKind::Interrupted);
             assert_eq!(err.to_string(), "User requested to quit");
         }
-        "" => {
+        "k" => {
             let err = result.unwrap_err();
             assert_eq!(err.kind(), ErrorKind::InvalidInput);
             assert_eq!(err.to_string(), "Invalid input");
