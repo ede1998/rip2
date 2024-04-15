@@ -31,15 +31,21 @@ This version, "rip2", is a fork-of-a-fork:
 
 This package is supported on Linux, macOS, and Windows.
 
-To install it, first [install Rust](https://doc.rust-lang.org/cargo/getting-started/installation.html).
+### Cargo
 
-Then, install this package with cargo:
+1. First [install Rust](https://doc.rust-lang.org/cargo/getting-started/installation.html).
+2. Then, install this package with cargo:
 
 ```bash
 $ cargo install --locked rip2
 ```
 
-No binaries are made available at this time.
+### Binaries
+
+Binary releases for different architectures and operating systems are
+made available on the GitHub releases page: https://github.com/MilesCranmer/rip2/releases/tag/v0.5.1
+
+To install, simply open the archive and move the binary somewhere you can run it.
 
 ## Usage
 
