@@ -35,12 +35,12 @@ tempfile = "3"
 opt-level = 3
 
 [[test]]
-name = "integration_tests"
-path = "tests/integration_tests.rs"
-
-[[test]]
 name = "unit_tests"
 path = "tests/unit_tests.rs"
+
+[[test]]
+name = "integration_tests"
+path = "tests/integration_tests.rs"
 
 [[bin]]
 name = "rip"
