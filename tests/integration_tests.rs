@@ -579,9 +579,8 @@ fn issue_0018() {
     {
         let expected_graveyard_path = util::join_absolute(
             &test_env.graveyard,
-            test_env.src.join("uu_meta.zip").canonicalize().unwrap(),
+            dunce::canonicalize(test_env.src.join("uu_meta.zip")).unwrap(),
         );
-        // TODO: update `.canonicalize()` to dunce
         cli_runner(
             [
                 "--graveyard",
@@ -613,7 +612,7 @@ fn issue_0018() {
     {
         let expected_graveyard_path = util::join_absolute(
             &test_env.graveyard,
-            test_env.src.join("gnu_meta.zip").canonicalize().unwrap(),
+            dunce::canonicalize(test_env.src.join("gnu_meta.zip")).unwrap(),
         );
         cli_runner(
             [
@@ -652,7 +651,7 @@ fn issue_0018() {
 
         let expected_graveyard_path = util::join_absolute(
             &test_env.graveyard,
-            test_env.src.join("gnu_meta.zip").canonicalize().unwrap(),
+            dunce::canonicalize(test_env.src.join("gnu_meta.zip")).unwrap(),
         );
 
         cli_runner(
