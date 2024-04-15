@@ -1,11 +1,88 @@
+use anstyle::{AnsiColor, Color::Ansi, Style};
+use clap::builder::styling::Styles;
 use clap::{Parser, Subcommand};
+
 use std::io::{Error, ErrorKind};
 use std::path::PathBuf;
 
+const CMD_STYLE: Style = Style::new().bold();
+const HEADER_STYLE: Style = Style::new()
+    .bold()
+    .underline()
+    .fg_color(Some(Ansi(AnsiColor::Blue)));
+const PLACEHOLDER_STYLE: Style = Style::new().fg_color(Some(Ansi(AnsiColor::Green)));
+
+const OPTIONS_PLACEHOLDER: &str = "{options}";
+const SUBCOMMANDS_PLACEHOLDER: &str = "{subcommands}";
+
+fn help_template(template: &str) -> String {
+    let header = HEADER_STYLE.render();
+    let rheader = HEADER_STYLE.render_reset();
+    let rip_s = CMD_STYLE.render();
+    let rrip_s = CMD_STYLE.render_reset();
+    let place = PLACEHOLDER_STYLE.render();
+    let rplace = PLACEHOLDER_STYLE.render_reset();
+
+    match template {
+        "rip" => format!(
+            "\
+rip: a safe and ergonomic alternative to rm
+
+{header}Usage{rheader}: {rip_s}rip{rrip_s} [{place}OPTIONS{rplace}] [{place}FILES{rplace}]...
+       {rip_s}rip{rrip_s} [{place}SUBCOMMAND{rplace}]
+
+{header}Arguments{rheader}:
+    [{place}FILES{rplace}]...  Files or directories to remove
+
+{header}Options{rheader}:
+{OPTIONS_PLACEHOLDER}
+
+{header}Subcommands{rheader}:
+{SUBCOMMANDS_PLACEHOLDER}
+"
+        ),
+        "completions" => format!(
+            "\
+Generate the shell completions file
+
+{header}Usage{rheader}: {rip_s}rip completions{rrip_s} <{place}SHELL{rplace}>
+
+{header}Arguments{rheader}:
+    <{place}SHELL{rplace}>  The shell to generate completions for
+
+{header}Options{rheader}:
+{OPTIONS_PLACEHOLDER}
+"
+        ),
+        "graveyard" => format!(
+            "\
+Print the graveyard path
+
+{header}Usage{rheader}: {rip_s}rip graveyard{rrip_s} [{place}OPTIONS{rplace}]
+
+{header}Options{rheader}:
+{OPTIONS_PLACEHOLDER}
+"
+        ),
+        _ => unreachable!(),
+    }
+}
+
+const STYLES: Styles = Styles::styled()
+    .literal(AnsiColor::Magenta.on_default())
+    .placeholder(AnsiColor::Green.on_default());
+
 #[derive(Parser, Debug, Default)]
-#[command(version, about, long_about = None)]
+#[command(
+    name = "rip",
+    version,
+    about,
+    long_about = None,
+    styles=STYLES,
+    help_template = help_template("rip"),
+)]
 pub struct Args {
-    /// File or directory to remove
+    /// Files and directories to remove
     pub targets: Vec<PathBuf>,
 
     /// Directory where deleted files rest
@@ -17,7 +94,7 @@ pub struct Args {
     pub decompose: bool,
 
     /// Prints files that were deleted
-    /// in the current working directory
+    /// in the current directory
     #[arg(short, long)]
     pub seance: bool,
 
@@ -39,11 +116,20 @@ pub struct Args {
 #[derive(Subcommand, Debug)]
 pub enum Commands {
     /// Generate shell completions file
-    /// for the specified shell
+    #[command(styles=STYLES, help_template=help_template("completions"))]
     Completions {
         /// The shell to generate completions for
         #[arg(value_name = "SHELL")]
         shell: String,
+    },
+
+    /// Print the graveyard path
+    #[command(styles=STYLES, help_template=help_template("graveyard"))]
+    Graveyard {
+        /// Get the graveyard subdirectory
+        /// of the current directory
+        #[arg(short, long)]
+        seance: bool,
     },
 }
 

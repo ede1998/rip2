@@ -1,3 +1,4 @@
+use lazy_static::lazy_static;
 use rip2::args::{validate_args, Args, Commands};
 use rip2::completions;
 use rip2::util::TestMode;
@@ -6,6 +7,7 @@ use std::fs;
 use std::io::{Cursor, ErrorKind};
 use std::path::PathBuf;
 use std::process;
+use std::sync::{Mutex, MutexGuard};
 use tempfile::tempdir;
 
 #[cfg(unix)]
@@ -19,6 +21,14 @@ use std::os::unix::net::UnixListener;
 
 #[cfg(target_os = "macos")]
 use std::os::unix::fs::FileTypeExt;
+
+lazy_static! {
+    static ref GLOBAL_LOCK: Mutex<()> = Mutex::new(());
+}
+
+fn aquire_lock() -> MutexGuard<'static, ()> {
+    GLOBAL_LOCK.lock().unwrap()
+}
 
 #[rstest]
 fn test_validation() {
@@ -202,4 +212,20 @@ fn test_completions(
         }
         _ => {}
     }
+}
+
+#[rstest]
+fn test_graveyard_path() {
+    let _env_lock = aquire_lock();
+
+    // Clear env:
+    std::env::remove_var("RIP_GRAVEYARD");
+    std::env::remove_var("XDG_DATA_HOME");
+
+    // Check default graveyard path
+    let graveyard = rip2::get_graveyard(None);
+    assert_eq!(
+        graveyard,
+        std::env::temp_dir().join(format!("graveyard-{}", rip2::util::get_user()))
+    );
 }
