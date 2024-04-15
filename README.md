@@ -1,7 +1,13 @@
-# RIP ⚰️ – a safer rust-based rm
+<div align="center">
+
+# rip
+
+### A safer, rust-based `rm`
 
 [![Test](https://github.com/MilesCranmer/rip2/actions/workflows/test.yml/badge.svg)](https://github.com/MilesCranmer/rip2/actions/workflows/test.yml)
 [![Coverage Status](https://coveralls.io/repos/github/MilesCranmer/rip2/badge.svg?branch=master)](https://coveralls.io/github/MilesCranmer/rip2?branch=master)
+
+</div>
 
 `rip` is a rust-based `rm` with a focus on safety, ergonomics, and performance.  It favors a simple interface, and does *not* implement the xdg-trash spec or attempt to achieve the same goals.
 
@@ -20,7 +26,7 @@ This version is a fork-of-a-fork:
     - Bug fix for FIFO files
     - Bug fix for seance
 
-## Installation
+## ⚰️ Installation
 
 You can install this package from source with:
 
