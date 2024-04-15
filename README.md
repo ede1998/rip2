@@ -28,7 +28,9 @@ This version is a fork-of-a-fork:
 
 ## ⚰️ Installation
 
-You can install this package from source with:
+First, [install Rust](https://doc.rust-lang.org/cargo/getting-started/installation.html).
+
+Then, install this package with cargo:
 
 ```bash
 $ cargo install --locked rip2
