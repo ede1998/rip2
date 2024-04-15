@@ -3,7 +3,7 @@ use rip2::completions;
 use rip2::util::TestMode;
 use rstest::rstest;
 use std::fs;
-use std::io::{Cursor, Error, ErrorKind};
+use std::io::{Cursor, ErrorKind};
 use std::path::PathBuf;
 use std::process;
 use tempfile::tempdir;
