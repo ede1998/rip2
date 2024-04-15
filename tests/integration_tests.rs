@@ -676,3 +676,13 @@ fn issue_0018() {
 
     return;
 }
+
+#[rstest]
+fn test_graveyard_subcommand() {
+    let expected_graveyard = rip2::get_graveyard(None);
+    let expected_graveyard_str = format!("{}\n", expected_graveyard.display());
+    cli_runner(["graveyard"], None)
+        .assert()
+        .success()
+        .stdout(is_match(expected_graveyard_str).unwrap());
+}
