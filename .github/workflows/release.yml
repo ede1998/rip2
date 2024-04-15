@@ -103,12 +103,12 @@ jobs:
             os: macOS-latest
             target: x86_64-apple-darwin
             bin: rip
-            name: rip-Darwin-x86_64.tar.gz
+            name: rip-macOS-Darwin-x86_64.tar.gz
           - os_name: macOS-aarch64
             os: macOS-latest
             target: aarch64-apple-darwin
             bin: rip
-            name: rip-Darwin-aarch64.tar.gz
+            name: rip-macOS-Darwin-aarch64.tar.gz
             skip_tests: true
         toolchain:
           - stable
