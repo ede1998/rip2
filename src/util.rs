@@ -94,6 +94,14 @@ impl TestingMode for TestMode {
     }
 }
 
+pub fn allow_rename() -> bool {
+    // Test behavior to skip simple rename
+    env::var("__RIP_ALLOW_RENAME")
+        .unwrap_or("true".to_string())
+        .parse::<bool>()
+        .unwrap()
+}
+
 /// Prompt for user input, returning True if the first character is 'y' or 'Y'
 /// Will create an error if given a 'q' or 'Q', equivalent to if the user
 /// had passed a SIGINT.

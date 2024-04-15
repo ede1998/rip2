@@ -4,7 +4,7 @@ use rand::distributions::Alphanumeric;
 use rand::Rng;
 use rip2::args::Args;
 use rip2::util::TestMode;
-use rip2::{self, util};
+use rip2::{self, record, util};
 use rstest::rstest;
 use std::fs;
 use std::io::{ErrorKind, Write};
@@ -590,6 +590,7 @@ fn issue_0018() {
             ],
             Some(&test_env.src),
         )
+        .env("__RIP_ALLOW_RENAME", "false")
         .write_stdin("\n")
         .assert()
         .stdout(is_match("About to copy a big file").unwrap())
@@ -623,6 +624,7 @@ fn issue_0018() {
             ],
             Some(&test_env.src),
         )
+        .env("__RIP_ALLOW_RENAME", "false")
         .write_stdin("q\n")
         .assert()
         .stdout(is_match("gnu_meta.zip: file, ").unwrap());
@@ -631,12 +633,27 @@ fn issue_0018() {
         assert!(test_env.src.join("gnu_meta.zip").exists());
         // And not in the graveyard:
         assert!(!expected_graveyard_path.exists());
+
+        // The graveyard record should *only* reference uu_meta.zip:
+        let record_contents = fs::read_to_string(test_env.graveyard.join(record::RECORD)).unwrap();
+        assert!(record_contents.contains("uu_meta.zip"));
+        assert!(!record_contents.contains("gnu_meta.zip"));
+
+        // And give this for the last bury
+        let record = record::Record::new(&test_env.graveyard);
+        let last_bury = record.get_last_bury().unwrap();
+        assert!(last_bury.ends_with("uu_meta.zip"));
     }
 
     // rip it again but without -i
     {
         // Should still be there
         assert!(test_env.src.join("gnu_meta.zip").exists());
+
+        let expected_graveyard_path = util::join_absolute(
+            &test_env.graveyard,
+            test_env.src.join("gnu_meta.zip").canonicalize().unwrap(),
+        );
         cli_runner(
             [
                 "--graveyard",
@@ -645,14 +662,20 @@ fn issue_0018() {
             ],
             Some(&test_env.src),
         )
+        .env("__RIP_ALLOW_RENAME", "false")
         .write_stdin("y\n")
-        .assert();
-        // .stdout(is_match("About to copy a big file").unwrap());
-        // .stdout(is_match("delete this file instead?").unwrap());
-        // .stdout(is_match("y/N").unwrap());
+        .assert()
+        .stdout(is_match("About to copy a big file").unwrap())
+        .stdout(is_match("delete this file instead?").unwrap())
+        .stdout(is_match("y/N").unwrap());
 
         // Expect it to be permanently deleted
-        // assert!(!test_env.src.join("gnu_meta.zip").exists());
+        assert!(!test_env.src.join("gnu_meta.zip").exists());
+        assert!(!expected_graveyard_path.exists());
+
+        // The record should not reference it anymore either
+        let record_contents = fs::read_to_string(test_env.graveyard.join(record::RECORD)).unwrap();
+        assert!(!record_contents.contains("gnu_meta.zip"));
     }
 
     return;

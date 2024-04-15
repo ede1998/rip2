@@ -13,7 +13,7 @@ use std::println as debug;
 
 use crate::util;
 
-const RECORD: &str = ".record";
+pub const RECORD: &str = ".record";
 
 #[derive(Debug)]
 pub struct RecordItem<'a> {

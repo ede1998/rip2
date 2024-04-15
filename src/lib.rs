@@ -371,7 +371,7 @@ pub fn move_target(
         target.display(),
         dest.display()
     );
-    if fs::rename(target, dest).is_ok() {
+    if util::allow_rename() && fs::rename(target, dest).is_ok() {
         return Ok(());
     }
 
