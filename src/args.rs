@@ -5,15 +5,14 @@ use clap::{Parser, Subcommand};
 use std::io::{Error, ErrorKind};
 use std::path::PathBuf;
 
-const CMD_STYLE: Style = Style::new().bold().fg_color(Some(Ansi(AnsiColor::BrightCyan)));
-const HEADER_STYLE: Style = Style::new()
+const CMD_STYLE: Style = Style::new()
     .bold()
-    .fg_color(Some(Ansi(AnsiColor::Green)));
+    .fg_color(Some(Ansi(AnsiColor::BrightCyan)));
+const HEADER_STYLE: Style = Style::new().bold().fg_color(Some(Ansi(AnsiColor::Green)));
 const PLACEHOLDER_STYLE: Style = Style::new().fg_color(Some(Ansi(AnsiColor::BrightCyan)));
 const STYLES: Styles = Styles::styled()
     .literal(AnsiColor::BrightCyan.on_default().bold())
     .placeholder(AnsiColor::BrightCyan.on_default());
-
 
 const OPTIONS_PLACEHOLDER: &str = "{options}";
 const SUBCOMMANDS_PLACEHOLDER: &str = "{subcommands}";
