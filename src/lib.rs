@@ -1,9 +1,9 @@
 use clap::CommandFactory;
+use jwalk::WalkDir;
 use std::fs::Metadata;
 use std::io::{BufRead, BufReader, Error, ErrorKind, Write};
 use std::path::{Path, PathBuf};
 use std::{env, fs};
-use walkdir::WalkDir;
 
 // Platform-specific imports
 #[cfg(unix)]
@@ -222,7 +222,7 @@ fn do_inspection(
             target.to_str().unwrap(),
             util::humanize_bytes(
                 WalkDir::new(source)
-                    .into_iter()
+                    .try_into_iter()?
                     .filter_map(|x| x.ok())
                     .filter_map(|x| x.metadata().ok())
                     .map(|x| x.len())
@@ -234,7 +234,7 @@ fn do_inspection(
         for entry in WalkDir::new(source)
             .min_depth(1)
             .max_depth(1)
-            .into_iter()
+            .try_into_iter()?
             .filter_map(|entry| entry.ok())
             .take(FILES_TO_INSPECT)
         {
@@ -320,9 +320,10 @@ fn move_dir(
     stream: &mut impl Write,
 ) -> Result<bool, Error> {
     // Walk the source, creating directories and copying files as needed
-    for entry in WalkDir::new(target).into_iter().filter_map(|e| e.ok()) {
+    for entry in WalkDir::new(target).try_into_iter()?.filter_map(|e| e.ok()) {
         // Path without the top-level directory
-        let orphan = entry.path().strip_prefix(target).map_err(|_| {
+        let entry_path = entry.path();
+        let orphan = entry_path.strip_prefix(target).map_err(|_| {
             Error::new(
                 ErrorKind::Other,
                 "Parent directory isn't a prefix of child directories?",
@@ -335,18 +336,18 @@ fn move_dir(
                     e.kind(),
                     format!(
                         "Failed to create dir: {} in {}",
-                        entry.path().display(),
+                        entry_path.display(),
                         dest.join(orphan).display()
                     ),
                 )
             })?;
         } else {
-            copy_file(entry.path(), &dest.join(orphan), mode, stream).map_err(|e| {
+            copy_file(&entry_path, &dest.join(orphan), mode, stream).map_err(|e| {
                 Error::new(
                     e.kind(),
                     format!(
                         "Failed to copy file from {} to {}",
-                        entry.path().display(),
+                        entry_path.display(),
                         dest.join(orphan).display()
                     ),
                 )
