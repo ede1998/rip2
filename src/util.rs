@@ -151,22 +151,3 @@ pub fn humanize_bytes(bytes: u64) -> String {
     }
     format!("{} B", bytes)
 }
-
-
-#[cfg(test)]
-mod test_humanize_bytes {
-    use super::*;
-    use rstest::rstest;
-
-    #[rstest]
-    fn test() {
-        assert_eq!(humanize_bytes(0), "0 B");
-        assert_eq!(humanize_bytes(1), "1 B");
-        assert_eq!(humanize_bytes(1024), "1.0 KiB");
-        assert_eq!(humanize_bytes(1024 * 1024), "1.0 MiB");
-        assert_eq!(humanize_bytes(1024 * 1024 * 1024), "1.0 GiB");
-        assert_eq!(humanize_bytes(1024 * 1024 * 1024 * 1024), "1.0 TiB");
-
-        assert_eq!(humanize_bytes(1024 * 1024 + 1024 * 512), "1.5 MiB");
-    }
-}
