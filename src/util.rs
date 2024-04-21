@@ -136,16 +136,37 @@ pub fn rename_grave(grave: impl AsRef<Path>) -> PathBuf {
         .expect("Failed to rename duplicate file or directory")
 }
 
+const UNITS: [(&str, u64); 4] = [
+    ("KiB", 1_u64 << 10),
+    ("MiB", 1_u64 << 20),
+    ("GiB", 1_u64 << 30),
+    ("TiB", 1_u64 << 40),
+];
+
 pub fn humanize_bytes(bytes: u64) -> String {
-    let values = ["bytes", "KB", "MB", "GB", "TB"];
-    let pair = values
-        .iter()
-        .enumerate()
-        .take_while(|x| bytes as usize / (1000_usize).pow(x.0 as u32) > 10)
-        .last();
-    if let Some((i, unit)) = pair {
-        format!("{} {}", bytes as usize / (1000_usize).pow(i as u32), unit)
-    } else {
-        format!("{} {}", bytes, values[0])
+    for (unit, size) in UNITS.iter().rev() {
+        if bytes >= *size {
+            return format!("{:.1} {}", bytes as f64 / *size as f64, unit);
+        }
+    }
+    format!("{} B", bytes)
+}
+
+
+#[cfg(test)]
+mod test_humanize_bytes {
+    use super::*;
+    use rstest::rstest;
+
+    #[rstest]
+    fn test() {
+        assert_eq!(humanize_bytes(0), "0 B");
+        assert_eq!(humanize_bytes(1), "1 B");
+        assert_eq!(humanize_bytes(1024), "1.0 KiB");
+        assert_eq!(humanize_bytes(1024 * 1024), "1.0 MiB");
+        assert_eq!(humanize_bytes(1024 * 1024 * 1024), "1.0 GiB");
+        assert_eq!(humanize_bytes(1024 * 1024 * 1024 * 1024), "1.0 TiB");
+
+        assert_eq!(humanize_bytes(1024 * 1024 + 1024 * 512), "1.5 MiB");
     }
 }

@@ -100,7 +100,7 @@ fn test_bury_unbury(#[values(false, true)] decompose: bool, #[values(false, true
     .unwrap();
     if inspect {
         let log_s = String::from_utf8(log).unwrap();
-        assert!(log_s.contains("100 bytes"));
+        assert!(log_s.contains("100 B"));
     } else {
         assert!(log.is_empty())
     }

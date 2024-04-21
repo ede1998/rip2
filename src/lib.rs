@@ -226,7 +226,7 @@ fn do_inspection(
                     .filter_map(|x| x.ok())
                     .filter_map(|x| x.metadata().ok())
                     .map(|x| x.len())
-                    .sum::<u64>(),
+                    .sum(),
             )
         )?;
 
