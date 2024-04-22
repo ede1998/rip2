@@ -1,7 +1,7 @@
 use lazy_static::lazy_static;
 use rip2::args::{validate_args, Args, Commands};
 use rip2::completions;
-use rip2::util::TestMode;
+use rip2::util::{humanize_bytes, TestMode};
 use rstest::rstest;
 use std::fs;
 use std::io::{Cursor, ErrorKind};
@@ -228,4 +228,16 @@ fn test_graveyard_path() {
         graveyard,
         std::env::temp_dir().join(format!("graveyard-{}", rip2::util::get_user()))
     );
+}
+
+#[rstest]
+fn test_humanize_bytes() {
+    assert_eq!(humanize_bytes(0), "0 B");
+    assert_eq!(humanize_bytes(1), "1 B");
+    assert_eq!(humanize_bytes(1024), "1.0 KiB");
+    assert_eq!(humanize_bytes(1024 * 1024), "1.0 MiB");
+    assert_eq!(humanize_bytes(1024 * 1024 * 1024), "1.0 GiB");
+    assert_eq!(humanize_bytes(1024 * 1024 * 1024 * 1024), "1.0 TiB");
+
+    assert_eq!(humanize_bytes(1024 * 1024 + 1024 * 512), "1.5 MiB");
 }
