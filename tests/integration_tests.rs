@@ -1,7 +1,7 @@
 use lazy_static::lazy_static;
 use predicates::str::is_match;
 use rand::distributions::Alphanumeric;
-use rand::Rng;
+use rand::{thread_rng, Rng};
 use rip2::args::Args;
 use rip2::record;
 use rip2::util::TestMode;
@@ -715,4 +715,121 @@ fn read_empty_record() {
     } else {
         panic!("Expected an error");
     }
+}
+
+/// Test that with many nested directories,
+/// we can still bury and unbury files
+#[rstest]
+fn many_nest() {
+    let test_env = TestEnv::new();
+
+    let pathname_len_range = 3..10;
+    let depth_range = 1..5;
+    let files_per_folder = 1..6;
+    let bytes_range = 1..100;
+    let num_folders = 50;
+    let max_num_files = (num_folders * (files_per_folder.end - 1) * (depth_range.end - 1)) as usize;
+
+    // Vec of unique names to use
+    let mut unique_rand_names = {
+        let mut rand_names = Vec::new();
+        while rand_names.len() < max_num_files {
+            let dir_name_len = thread_rng().gen_range(pathname_len_range.clone());
+            let rand_name = thread_rng()
+                .sample_iter(&Alphanumeric)
+                .take(dir_name_len)
+                .map(char::from)
+                .collect::<String>();
+            if !rand_names.contains(&rand_name) {
+                rand_names.push(rand_name);
+            }
+        }
+        rand_names
+    };
+
+    let depths = (0..num_folders).map(|_| thread_rng().gen_range(depth_range.clone()));
+    let dirs = depths
+        .map(|depth| {
+            let mut path = test_env.src.clone();
+            for _ in 0..depth {
+                path = path.join(unique_rand_names.pop().unwrap());
+            }
+            path
+        })
+        .collect::<Vec<PathBuf>>();
+
+    // Create the directories
+    for dir in dirs.iter() {
+        fs::create_dir_all(dir).unwrap();
+    }
+
+    // Create the filenames
+    let filenames = {
+        let mut filenames = Vec::new();
+        for dir in dirs {
+            let num_files = thread_rng().gen_range(files_per_folder.clone());
+            for _ in 0..num_files {
+                // Create an empty file
+                let filename = dir.join(format!("{}.txt", unique_rand_names.pop().unwrap()));
+                // Initialize the file
+                filenames.push(filename);
+            }
+        }
+        filenames
+    };
+    assert!(!filenames.is_empty());
+    assert!(!unique_rand_names.is_empty());
+
+    // Create the filenames with some data
+    let num_bytes_per_file = filenames
+        .iter()
+        .map(|_| thread_rng().gen_range(bytes_range.clone()) as u64);
+    let data = {
+        let mut data = Vec::new();
+        for (filename, num_bytes) in filenames.iter().zip(num_bytes_per_file) {
+            // Create a file with `num_bytes` stored
+            let mut file = fs::File::create(filename).unwrap();
+            let cur_data = thread_rng()
+                .sample_iter(&Alphanumeric)
+                .take(num_bytes as usize)
+                .map(char::from)
+                .collect::<String>();
+            file.write_all(cur_data.as_bytes()).unwrap();
+            data.push(cur_data);
+        }
+        data
+    };
+
+    // Check that the first file exists
+    assert!(filenames[0].exists());
+
+    // Check that it has the right data
+    {
+        let cur_data = fs::read_to_string(&filenames[0]).unwrap();
+        assert_eq!(cur_data, data[0]);
+    }
+
+    // Get the true size
+    let true_size = fs_extra::dir::get_size(&test_env.src).unwrap();
+
+    // Bury the files interactively
+    let mut log = Vec::new();
+    let result = rip2::run(
+        Args {
+            targets: [test_env.src.clone()].to_vec(),
+            graveyard: Some(test_env.graveyard.clone()),
+            inspect: true,
+            ..Args::default()
+        },
+        TestMode,
+        &mut log,
+    );
+    assert!(result.is_ok());
+    let log_s = String::from_utf8(log).unwrap();
+    let expected_log_s = format!(
+            "{}: directory, {} including:",
+            test_env.src.display(),
+            util::humanize_bytes(true_size)
+        );
+    assert!(log_s.contains(&expected_log_s));
 }
