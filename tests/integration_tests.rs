@@ -1,3 +1,4 @@
+use jwalk::WalkDir;
 use lazy_static::lazy_static;
 use predicates::str::is_match;
 use rand::distributions::Alphanumeric;
@@ -8,7 +9,8 @@ use rip2::util::TestMode;
 use rip2::{self, util};
 use rstest::rstest;
 use std::fs;
-use std::io::{ErrorKind, Write};
+use std::hash::{DefaultHasher, Hash, Hasher};
+use std::io::{BufReader, ErrorKind, Read, Write};
 use std::path::PathBuf;
 use std::sync::{Mutex, MutexGuard};
 use std::{env, ffi, iter};
@@ -717,17 +719,42 @@ fn read_empty_record() {
     }
 }
 
+/// Hash the directory and all contents
+fn _hash_dir(dir: &PathBuf) -> String {
+    let mut hash = DefaultHasher::new();
+    for f in WalkDir::new(dir).sort(true) {
+        let path = f.unwrap().path();
+
+        // First, hash the file path
+        path.hash(&mut hash);
+        if path.is_dir() {
+            continue;
+        }
+
+        // Then, hash the file contents
+        let file = fs::File::open(path).unwrap();
+        let mut reader = BufReader::new(file);
+        let mut buffer = Vec::new();
+        reader.read_to_end(&mut buffer).unwrap();
+        buffer.hash(&mut hash);
+    }
+    hash.finish().to_string()
+}
+
 /// Test that with many nested directories,
 /// we can still bury and unbury files
 #[rstest]
 fn many_nest() {
     let test_env = TestEnv::new();
 
+    // Random generators
     let pathname_len_range = 3..10;
     let depth_range = 1..5;
     let files_per_folder = 1..6;
     let bytes_range = 1..100;
     let num_folders = 50;
+
+    // Inferred maximum number of files
     let max_num_files = (num_folders * (files_per_folder.end - 1) * (depth_range.end - 1)) as usize;
 
     // Vec of unique names to use
@@ -812,6 +839,9 @@ fn many_nest() {
     // Get the true size
     let true_size = fs_extra::dir::get_size(&test_env.src).unwrap();
 
+    // Hash everything in the directory
+    let original_hash = _hash_dir(&test_env.src);
+
     // Bury the files interactively
     let mut log = Vec::new();
     let result = rip2::run(
@@ -827,9 +857,26 @@ fn many_nest() {
     assert!(result.is_ok());
     let log_s = String::from_utf8(log).unwrap();
     let expected_log_s = format!(
-            "{}: directory, {} including:",
-            test_env.src.display(),
-            util::humanize_bytes(true_size)
-        );
+        "{}: directory, {} including:",
+        test_env.src.display(),
+        util::humanize_bytes(true_size)
+    );
     assert!(log_s.contains(&expected_log_s));
+
+    // Unbury everything
+    let mut log = Vec::new();
+    let result = rip2::run(
+        Args {
+            graveyard: Some(test_env.graveyard.clone()),
+            unbury: Some(Vec::new()),
+            ..Args::default()
+        },
+        TestMode,
+        &mut log,
+    );
+    assert!(result.is_ok());
+
+    // The hash should be unchanged
+    let new_hash = _hash_dir(&test_env.src);
+    assert_eq!(original_hash, new_hash);
 }
