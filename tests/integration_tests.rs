@@ -688,9 +688,9 @@ fn test_graveyard_subcommand(#[values(false, true)] seance: bool) {
     let expected_gravepath =
         util::join_absolute(&expected_graveyard, dunce::canonicalize(cwd).unwrap());
     let expected_str = if seance {
-        format!("{}\n", expected_gravepath.display())
+        format!("{}", expected_gravepath.display())
     } else {
-        format!("{}\n", expected_graveyard.display())
+        format!("{}", expected_graveyard.display())
     };
     let mut args = vec!["graveyard"];
     if seance {
