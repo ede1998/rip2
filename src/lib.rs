@@ -234,6 +234,7 @@ fn do_inspection(
 
         // Print the first few top-level files in the directory
         for entry in WalkDir::new(source)
+            .sort(true)
             .min_depth(1)
             .max_depth(1)
             .try_into_iter()?
