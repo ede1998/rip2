@@ -104,10 +104,10 @@ pub fn prompt_yes(
         return Ok(true);
     }
 
-    process_in_stream(io::stdin())
+    yes_no_quit(io::stdin())
 }
 
-pub fn process_in_stream(in_stream: impl Read) -> Result<bool, Error> {
+pub fn yes_no_quit(in_stream: impl Read) -> Result<bool, Error> {
     let buffered = BufReader::new(in_stream);
     let char_result = buffered
         .bytes()
