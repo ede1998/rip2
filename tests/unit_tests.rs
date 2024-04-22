@@ -241,3 +241,19 @@ fn test_humanize_bytes() {
 
     assert_eq!(humanize_bytes(1024 * 1024 + 1024 * 512), "1.5 MiB");
 }
+
+#[rstest]
+fn fail_move_dir() {
+    let tmpdir_dest = tempdir().unwrap();
+    let tmpdir_target = tempdir().unwrap();
+    let path_dest = PathBuf::from(tmpdir_dest.path());
+    let path_target = PathBuf::from(tmpdir_target.path());
+    let dest = path_dest.join("foo");
+    let target = path_target.join("bar");
+    let mut log = Vec::new();
+    let results = rip2::move_dir(&target, &dest, &TestMode, &mut log);
+    assert!(results.is_err());
+    if let Err(e) = results {
+        assert!(e.to_string().contains("Failed to remove dir"));
+    }
+}

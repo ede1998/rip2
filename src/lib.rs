@@ -316,7 +316,7 @@ pub fn move_target(
 
 /// Move a target which is a directory to a given destination, copying if necessary.
 /// Returns true *always*, as the creation of the directory is enough to mark it as successful.
-fn move_dir(
+pub fn move_dir(
     target: &Path,
     dest: &Path,
     mode: &impl util::TestingMode,
