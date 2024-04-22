@@ -11,9 +11,6 @@ fn main() -> ExitCode {
     let cmd = args::Args::augment_args(base_cmd);
     let cli = args::Args::from_arg_matches(&cmd.get_matches()).unwrap();
 
-    let mut stream = io::stdout();
-    let mode = util::ProductionMode;
-
     match &cli.command {
         Some(Commands::Completions { shell }) => {
             let result = completions::generate_shell_completions(shell, &mut io::stdout());
@@ -21,7 +18,6 @@ fn main() -> ExitCode {
                 eprintln!("{}", result.unwrap_err());
                 return ExitCode::FAILURE;
             }
-            return ExitCode::SUCCESS;
         }
         Some(Commands::Graveyard { seance }) => {
             let graveyard = rip2::get_graveyard(None);
@@ -32,19 +28,22 @@ fn main() -> ExitCode {
             } else {
                 println!("{}", graveyard.display());
             }
-            return ExitCode::SUCCESS;
         }
-        None => {}
+        None => {
+            let mut stream = io::stdout();
+            let mode = util::ProductionMode;
+
+            ////////////////////////////////////////////////////////////
+            // Main code ///////////////////////////////////////////////
+            let result = rip2::run(cli, mode, &mut stream);
+            ////////////////////////////////////////////////////////////
+
+            if let Err(ref e) = result {
+                println!("Exception: {}", e);
+                return ExitCode::FAILURE;
+            }
+        }
     }
 
-    ////////////////////////////////////////////////////////////
-    // Main code ///////////////////////////////////////////////
-    let result = rip2::run(cli, mode, &mut stream);
-    ////////////////////////////////////////////////////////////
-
-    if let Err(ref e) = result {
-        println!("Exception: {}", e);
-        return ExitCode::FAILURE;
-    }
     ExitCode::SUCCESS
 }
