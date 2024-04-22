@@ -97,8 +97,9 @@ jobs:
   packaging:
     name: packaging-${{ matrix.platform.target }}
     runs-on: ${{ matrix.platform.os }}
-    needs: release-please
-    if: needs.release-please.outputs.created
+    needs:
+      - release-please
+      - publish
     strategy:
       fail-fast: false
       matrix:
@@ -235,6 +236,6 @@ jobs:
         if: matrix.toolchain == 'stable'
         with:
           file_glob: true
-          file: ${{ matrix.platform.name }}
           tag: ${{ needs.release-please.outputs.tag_name }}
+          file: ${{ matrix.platform.name }}
           overwrite: true
