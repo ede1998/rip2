@@ -5,7 +5,6 @@
 
 ### ⚠ BREAKING CHANGES
 
-* switch from walkdir to jwalk for parallelism
 * switch display to binary prefix
 
 ### Features
@@ -13,7 +12,6 @@
 * `fs_extra` to get dir sizes ([ceda4a9](https://github.com/MilesCranmer/rip2/commit/ceda4a974a68d1ef48cd58322e49118f507ba076))
 * sort entries in inspection mode ([7686ea3](https://github.com/MilesCranmer/rip2/commit/7686ea362f631ed8a877963c56e1eccbb24172c6))
 * switch display to binary prefix ([8fd45f1](https://github.com/MilesCranmer/rip2/commit/8fd45f1e0eb95a217756363a0e3dfda99db7dd21))
-* switch from walkdir to jwalk for parallelism ([c1d7d09](https://github.com/MilesCranmer/rip2/commit/c1d7d09df9131cc52b19905dc8b8c0718d5a36c9))
 
 
 ### Reverts
