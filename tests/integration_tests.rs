@@ -1,4 +1,3 @@
-use jwalk::WalkDir;
 use lazy_static::lazy_static;
 use predicates::str::is_match;
 use rand::distributions::Alphanumeric;
@@ -15,6 +14,7 @@ use std::path::PathBuf;
 use std::sync::{Mutex, MutexGuard};
 use std::{env, ffi, iter};
 use tempfile::{tempdir, TempDir};
+use walkdir::WalkDir;
 
 lazy_static! {
     static ref GLOBAL_LOCK: Mutex<()> = Mutex::new(());
@@ -722,8 +722,9 @@ fn read_empty_record() {
 /// Hash the directory and all contents
 fn _hash_dir(dir: &PathBuf) -> String {
     let mut hash = DefaultHasher::new();
-    for f in WalkDir::new(dir).sort(true) {
-        let path = f.unwrap().path();
+    for f in WalkDir::new(dir).sort_by(|a, b| a.cmp(b)) {
+        let f = f.unwrap();
+        let path = f.path();
 
         // First, hash the file path
         path.hash(&mut hash);
