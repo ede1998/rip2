@@ -1,4 +1,5 @@
 use clap::CommandFactory;
+use fs_extra::dir::get_size;
 use jwalk::WalkDir;
 use std::fs::Metadata;
 use std::io::{BufRead, BufReader, Error, ErrorKind, Write};
@@ -216,19 +217,20 @@ fn do_inspection(
 ) -> Result<bool, Error> {
     if metadata.is_dir() {
         // Get the size of the directory and all its contents
-        writeln!(
-            stream,
-            "{}: directory, {} including:",
-            target.to_str().unwrap(),
-            util::humanize_bytes(
-                WalkDir::new(source)
-                    .try_into_iter()?
-                    .filter_map(|x| x.ok())
-                    .filter_map(|x| x.metadata().ok())
-                    .map(|x| x.len())
-                    .sum(),
-            )
-        )?;
+        {
+            let num_bytes = get_size(source).map_err(|_| {
+                Error::new(
+                    ErrorKind::Other,
+                    format!("Failed to get size of directory: {}", source.display()),
+                )
+            })?;
+            writeln!(
+                stream,
+                "{}: directory, {} including:",
+                target.to_str().unwrap(),
+                util::humanize_bytes(num_bytes)
+            )?;
+        }
 
         // Print the first few top-level files in the directory
         for entry in WalkDir::new(source)
