@@ -36,9 +36,21 @@ pub struct Record {
 
 impl Record {
     pub fn new(graveyard: &Path) -> Record {
-        Record {
-            path: graveyard.join(RECORD),
+        let path = graveyard.join(RECORD);
+        // Create the record file if it doesn't exist
+        if !path.exists() {
+            // Write a header to the record file
+            let mut record_file = fs::OpenOptions::new()
+                .truncate(true)
+                .create(true)
+                .write(true)
+                .open(&path)
+                .expect("Failed to open record file");
+            record_file
+                .write_all(b"Time\tOriginal\tDestination\n")
+                .expect("Failed to write header to record file");
         }
+        Record { path }
     }
 
     pub fn open(&self) -> Result<fs::File, Error> {
@@ -60,7 +72,9 @@ impl Record {
         // This will be None if there is nothing, or Some
         // if there is items in the vector
         let mut graves_to_exhume = Vec::new();
-        for entry in contents.lines().rev().map(RecordItem::new) {
+        let mut lines = contents.lines();
+        lines.next();
+        for entry in lines.rev().map(RecordItem::new) {
             // Check that the file is still in the graveyard.
             // If it is, return the corresponding line.
             if util::symlink_exists(entry.dest) {
@@ -86,8 +100,9 @@ impl Record {
         // Get the lines to write back to the record, which is every line except
         // the ones matching the exhumed graves.  Store them in a vector
         // since we'll be overwriting the record in-place.
-        let lines_to_write: Vec<String> = BufReader::new(record_file)
-            .lines()
+        let mut reader = BufReader::new(record_file).lines();
+        reader.next();
+        let lines_to_write: Vec<String> = reader
             .map_while(Result::ok)
             .filter(|line| !graves.iter().any(|y| y == RecordItem::new(line).dest))
             .collect();
@@ -116,8 +131,9 @@ impl Record {
         graves: &'a [PathBuf],
     ) -> impl Iterator<Item = String> + 'a {
         let record_file = self.open().unwrap();
-        BufReader::new(record_file)
-            .lines()
+        let mut reader = BufReader::new(record_file).lines();
+        reader.next();
+        reader
             .map_while(Result::ok)
             .filter(move |line| graves.iter().any(|y| y == RecordItem::new(line).dest))
     }
@@ -128,8 +144,9 @@ impl Record {
         gravepath: &'a PathBuf,
     ) -> io::Result<impl Iterator<Item = PathBuf> + 'a> {
         let record_file = self.open()?;
-        Ok(BufReader::new(record_file)
-            .lines()
+        let mut reader = BufReader::new(record_file).lines();
+        reader.next();
+        Ok(reader
             .map_while(Result::ok)
             .map(|line| PathBuf::from(RecordItem::new(&line).dest))
             .filter(move |d| d.starts_with(gravepath)))

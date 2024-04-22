@@ -707,16 +707,11 @@ fn read_empty_record() {
     let _env_lock = aquire_lock();
     let test_env = TestEnv::new();
     let cwd = env::current_dir().unwrap();
+    fs::create_dir(&test_env.graveyard).unwrap();
     let record = record::Record::new(&test_env.graveyard);
     let gravepath = &util::join_absolute(&test_env.graveyard, dunce::canonicalize(cwd).unwrap());
     let result = record.seance(gravepath);
-    assert!(result.is_err());
-    if let Err(e) = result {
-        assert_eq!(e.kind(), ErrorKind::NotFound);
-        assert_eq!(e.to_string(), "Failed to read record!");
-    } else {
-        panic!("Expected an error");
-    }
+    assert!(result.is_ok());
 }
 
 /// Hash the directory and all contents
