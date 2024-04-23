@@ -8,23 +8,23 @@ use crate::util;
 pub const RECORD: &str = ".record";
 
 #[derive(Debug)]
-pub struct RecordItem<'a> {
-    _time: &'a str,
-    pub orig: &'a Path,
-    pub dest: &'a Path,
+pub struct RecordItem {
+    pub time: String,
+    pub orig: PathBuf,
+    pub dest: PathBuf,
 }
 
-impl RecordItem<'_> {
+impl RecordItem {
     /// Parse a line in the record into a `RecordItem`
     pub fn new(line: &str) -> RecordItem {
         let mut tokens = line.split('\t');
-        let time: &str = tokens.next().expect("Bad format: column A");
-        let orig: &str = tokens.next().expect("Bad format: column B");
-        let dest: &str = tokens.next().expect("Bad format: column C");
+        let time = tokens.next().expect("Bad format: column A").to_string();
+        let orig = tokens.next().expect("Bad format: column B").to_string();
+        let dest = tokens.next().expect("Bad format: column C").to_string();
         RecordItem {
-            _time: time,
-            orig: Path::new(orig),
-            dest: Path::new(dest),
+            time,
+            orig: PathBuf::from(orig),
+            dest: PathBuf::from(dest),
         }
     }
 }
@@ -71,20 +71,20 @@ impl Record {
 
         // This will be None if there is nothing, or Some
         // if there is items in the vector
-        let mut graves_to_exhume = Vec::new();
+        let mut graves_to_exhume: Vec<PathBuf> = Vec::new();
         let mut lines = contents.lines();
         lines.next();
         for entry in lines.rev().map(RecordItem::new) {
             // Check that the file is still in the graveyard.
             // If it is, return the corresponding line.
-            if util::symlink_exists(entry.dest) {
+            if util::symlink_exists(&entry.dest) {
                 if !graves_to_exhume.is_empty() {
                     self.delete_lines(record_file, &graves_to_exhume)?;
                 }
-                return Ok(PathBuf::from(entry.dest));
+                return Ok(entry.dest);
             } else {
                 // File is gone, mark the grave to be removed from the record
-                graves_to_exhume.push(PathBuf::from(entry.dest));
+                graves_to_exhume.push(entry.dest);
             }
         }
 
@@ -104,7 +104,7 @@ impl Record {
         reader.next();
         let lines_to_write: Vec<String> = reader
             .map_while(Result::ok)
-            .filter(|line| !graves.iter().any(|y| y == RecordItem::new(line).dest))
+            .filter(|line| !graves.iter().any(|y| *y == RecordItem::new(line).dest))
             .collect();
         let mut mutable_record_file = fs::File::create(record_path)?;
         for line in lines_to_write {
@@ -135,21 +135,21 @@ impl Record {
         reader.next();
         reader
             .map_while(Result::ok)
-            .filter(move |line| graves.iter().any(|y| y == RecordItem::new(line).dest))
+            .filter(move |line| graves.iter().any(|y| *y == RecordItem::new(line).dest))
     }
 
     /// Returns an iterator over all graves in the record that are under gravepath
     pub fn seance<'a>(
         &'a self,
         gravepath: &'a PathBuf,
-    ) -> io::Result<impl Iterator<Item = PathBuf> + 'a> {
+    ) -> io::Result<impl Iterator<Item = RecordItem> + 'a> {
         let record_file = self.open()?;
         let mut reader = BufReader::new(record_file).lines();
         reader.next();
         Ok(reader
             .map_while(Result::ok)
-            .map(|line| PathBuf::from(RecordItem::new(&line).dest))
-            .filter(move |d| d.starts_with(gravepath)))
+            .map(|line| RecordItem::new(&line))
+            .filter(move |record_item| record_item.dest.starts_with(gravepath)))
     }
 
     /// Write deletion history to record

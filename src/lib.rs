@@ -71,7 +71,7 @@ pub fn run(cli: Args, mode: impl util::TestingMode, stream: &mut impl Write) -> 
         if cli.seance && record.open().is_ok() {
             let gravepath = util::join_absolute(graveyard, dunce::canonicalize(cwd)?);
             for grave in record.seance(&gravepath)? {
-                graves_to_exhume.push(grave);
+                graves_to_exhume.push(grave.dest);
             }
         }
 
@@ -85,11 +85,11 @@ pub fn run(cli: Args, mode: impl util::TestingMode, stream: &mut impl Write) -> 
         // Go through the graveyard and exhume all the graves
         for line in record.lines_of_graves(&graves_to_exhume) {
             let entry = RecordItem::new(&line);
-            let orig: PathBuf = match util::symlink_exists(entry.orig) {
-                true => util::rename_grave(entry.orig),
-                false => PathBuf::from(entry.orig),
+            let orig: PathBuf = match util::symlink_exists(&entry.orig) {
+                true => util::rename_grave(&entry.orig),
+                false => PathBuf::from(&entry.orig),
             };
-            move_target(entry.dest, &orig, &mode, stream).map_err(|e| {
+            move_target(&entry.dest, &orig, &mode, stream).map_err(|e| {
                 Error::new(
                     e.kind(),
                     format!(
@@ -114,7 +114,7 @@ pub fn run(cli: Args, mode: impl util::TestingMode, stream: &mut impl Write) -> 
     if cli.seance {
         let gravepath = util::join_absolute(graveyard, dunce::canonicalize(cwd)?);
         for grave in record.seance(&gravepath)? {
-            writeln!(stream, "{}", grave.display())?;
+            writeln!(stream, "{}", grave.dest.display())?;
         }
         return Ok(());
     }
