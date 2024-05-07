@@ -1,5 +1,17 @@
 # Changelog
 
+## [0.8.0](https://github.com/MilesCranmer/rip2/compare/v0.7.0...v0.8.0) (2024-05-07)
+
+
+### ⚠ BREAKING CHANGES
+
+* output column headers during seance
+
+### Features
+
+* display deletion time during seance ([19dbe0a](https://github.com/MilesCranmer/rip2/commit/19dbe0a3bb61b62727cc5a4ab98913feb3c01512))
+* output column headers during seance ([d29bdd5](https://github.com/MilesCranmer/rip2/commit/d29bdd51e93e8cccacbfc12e5e99608cf1c07314))
+
 ## [0.7.0](https://github.com/MilesCranmer/rip2/compare/v0.6.1...v0.7.0) (2024-04-22)
 
 
