@@ -147,7 +147,7 @@ fn bury_target(
         cwd.join(target)
     };
 
-    if inspect && do_inspection(target, source, metadata, mode, stream)? {
+    if inspect && !should_we_bury_this(target, source, metadata, mode, stream)? {
         // User chose to not bury the file
     } else if source.starts_with(graveyard) {
         // If rip is called on a file already in the graveyard, prompt
@@ -190,7 +190,7 @@ fn bury_target(
     Ok(())
 }
 
-fn do_inspection(
+fn should_we_bury_this(
     target: &Path,
     source: &PathBuf,
     metadata: &Metadata,
@@ -245,7 +245,7 @@ fn do_inspection(
             writeln!(stream, "Error reading {}", source.display())?;
         }
     }
-    Ok(!util::prompt_yes(
+    Ok(util::prompt_yes(
         format!("Send {} to the graveyard?", target.to_str().unwrap()),
         mode,
         stream,
