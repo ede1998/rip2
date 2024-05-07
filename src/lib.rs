@@ -46,14 +46,11 @@ pub fn run(cli: Args, mode: impl util::TestingMode, stream: &mut impl Write) -> 
         if util::prompt_yes("Really unlink the entire graveyard?", &mode, stream)? {
             fs::remove_dir_all(graveyard)?;
         }
-        return Ok(());
-    }
+    } else if let Some(mut graves_to_exhume) = cli.unbury {
+        // Stores the deleted files
+        let record = Record::new(graveyard);
+        let cwd = &env::current_dir()?;
 
-    // Stores the deleted files
-    let record = Record::new(graveyard);
-    let cwd = &env::current_dir()?;
-
-    if let Some(mut graves_to_exhume) = cli.unbury {
         // Vector to hold the grave path of items we want to unbury.
         // This will be used to determine which items to remove from the
         // record following the unbury.
@@ -100,11 +97,9 @@ pub fn run(cli: Args, mode: impl util::TestingMode, stream: &mut impl Write) -> 
             )?;
         }
         record.log_exhumed_graves(&graves_to_exhume)?;
-
-        return Ok(());
-    }
-
-    if cli.seance {
+    } else if cli.seance {
+        let record = Record::new(graveyard);
+        let cwd = &env::current_dir()?;
         let gravepath = util::join_absolute(graveyard, dunce::canonicalize(cwd)?);
         for grave in record.seance(&gravepath)? {
             let parsed_time = chrono::DateTime::parse_from_rfc3339(&grave.time)
@@ -114,16 +109,16 @@ pub fn run(cli: Args, mode: impl util::TestingMode, stream: &mut impl Write) -> 
             // Get the path separator:
             writeln!(stream, "{} {}", parsed_time, grave.dest.display())?;
         }
-        return Ok(());
-    }
-
-    if cli.targets.is_empty() {
-        Args::command().print_help()?;
-        return Ok(());
-    }
-
-    for target in cli.targets {
-        bury_target(&target, graveyard, &record, cwd, cli.inspect, &mode, stream)?;
+    } else {
+        if cli.targets.is_empty() {
+            Args::command().print_help()?;
+        } else {
+            let record = Record::new(graveyard);
+            let cwd = &env::current_dir()?;
+            for target in cli.targets {
+                bury_target(&target, graveyard, &record, cwd, cli.inspect, &mode, stream)?;
+            }
+        }
     }
 
     Ok(())
