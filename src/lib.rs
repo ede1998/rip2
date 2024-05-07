@@ -41,15 +41,16 @@ pub fn run(cli: Args, mode: impl util::TestingMode, stream: &mut impl Write) -> 
         // TODO: Default permissions on windows should be good, but need to double-check.
     }
 
+    // Stores the deleted files
+    let record = Record::new(graveyard);
+    let cwd = &env::current_dir()?;
+
     // If the user wishes to restore everything
     if cli.decompose {
         if util::prompt_yes("Really unlink the entire graveyard?", &mode, stream)? {
             fs::remove_dir_all(graveyard)?;
         }
     } else if let Some(mut graves_to_exhume) = cli.unbury {
-        // Stores the deleted files
-        let record = Record::new(graveyard);
-        let cwd = &env::current_dir()?;
 
         // Vector to hold the grave path of items we want to unbury.
         // This will be used to determine which items to remove from the
@@ -98,8 +99,6 @@ pub fn run(cli: Args, mode: impl util::TestingMode, stream: &mut impl Write) -> 
         }
         record.log_exhumed_graves(&graves_to_exhume)?;
     } else if cli.seance {
-        let record = Record::new(graveyard);
-        let cwd = &env::current_dir()?;
         let gravepath = util::join_absolute(graveyard, dunce::canonicalize(cwd)?);
         for grave in record.seance(&gravepath)? {
             let parsed_time = chrono::DateTime::parse_from_rfc3339(&grave.time)
@@ -113,8 +112,6 @@ pub fn run(cli: Args, mode: impl util::TestingMode, stream: &mut impl Write) -> 
         if cli.targets.is_empty() {
             Args::command().print_help()?;
         } else {
-            let record = Record::new(graveyard);
-            let cwd = &env::current_dir()?;
             for target in cli.targets {
                 bury_target(&target, graveyard, &record, cwd, cli.inspect, &mode, stream)?;
             }
