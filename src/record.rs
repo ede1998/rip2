@@ -18,9 +18,9 @@ impl RecordItem {
     /// Parse a line in the record into a `RecordItem`
     pub fn new(line: &str) -> RecordItem {
         let mut tokens = line.split('\t');
-        let time = tokens.next().expect("Bad format: column A").to_string();
-        let orig = tokens.next().expect("Bad format: column B").to_string();
-        let dest = tokens.next().expect("Bad format: column C").to_string();
+        let time = tokens.next().expect("Bad format: column 1").to_string();
+        let orig = tokens.next().expect("Bad format: column 2").to_string();
+        let dest = tokens.next().expect("Bad format: column 3").to_string();
         RecordItem {
             time,
             orig: PathBuf::from(orig),
