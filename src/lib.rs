@@ -99,13 +99,14 @@ pub fn run(cli: Args, mode: impl util::TestingMode, stream: &mut impl Write) -> 
         record.log_exhumed_graves(&graves_to_exhume)?;
     } else if cli.seance {
         let gravepath = util::join_absolute(graveyard, dunce::canonicalize(cwd)?);
+        writeln!(stream, "{: <19}\tpath", "deletion_time")?;
         for grave in record.seance(&gravepath)? {
             let parsed_time = chrono::DateTime::parse_from_rfc3339(&grave.time)
                 .expect("Failed to parse time from RFC3339 format")
-                .format("%Y-%m-%d %H:%M:%S")
+                .format("%Y-%m-%dT%H:%M:%S")
                 .to_string();
             // Get the path separator:
-            writeln!(stream, "{} {}", parsed_time, grave.dest.display())?;
+            writeln!(stream, "{}\t{}", parsed_time, grave.dest.display())?;
         }
     } else if cli.targets.is_empty() {
         Args::command().print_help()?;
