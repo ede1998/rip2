@@ -27,13 +27,6 @@ pub const BIG_FILE_THRESHOLD: u64 = 500000000; // 500 MB
 
 pub fn run(cli: Args, mode: impl util::TestingMode, stream: &mut impl Write) -> Result<(), Error> {
     args::validate_args(&cli)?;
-    // This selects the location of deleted
-    // files based on the following order (from
-    // first choice to last):
-    // 1. Path passed with --graveyard
-    // 2. Path pointed by the $GRAVEYARD variable
-    // 3. $XDG_DATA_HOME/graveyard (only if XDG_DATA_HOME is defined)
-    // 4. /tmp/graveyard-user
     let graveyard: &PathBuf = &get_graveyard(cli.graveyard);
 
     if !graveyard.exists() {
@@ -48,19 +41,16 @@ pub fn run(cli: Args, mode: impl util::TestingMode, stream: &mut impl Write) -> 
         // TODO: Default permissions on windows should be good, but need to double-check.
     }
 
+    // Stores the deleted files
+    let record = Record::new(graveyard);
+    let cwd = &env::current_dir()?;
+
     // If the user wishes to restore everything
     if cli.decompose {
         if util::prompt_yes("Really unlink the entire graveyard?", &mode, stream)? {
             fs::remove_dir_all(graveyard)?;
         }
-        return Ok(());
-    }
-
-    // Stores the deleted files
-    let record = Record::new(graveyard);
-    let cwd = &env::current_dir()?;
-
-    if let Some(mut graves_to_exhume) = cli.unbury {
+    } else if let Some(mut graves_to_exhume) = cli.unbury {
         // Vector to hold the grave path of items we want to unbury.
         // This will be used to determine which items to remove from the
         // record following the unbury.
@@ -71,7 +61,7 @@ pub fn run(cli: Args, mode: impl util::TestingMode, stream: &mut impl Write) -> 
         if cli.seance && record.open().is_ok() {
             let gravepath = util::join_absolute(graveyard, dunce::canonicalize(cwd)?);
             for grave in record.seance(&gravepath)? {
-                graves_to_exhume.push(grave);
+                graves_to_exhume.push(grave.dest);
             }
         }
 
@@ -85,11 +75,11 @@ pub fn run(cli: Args, mode: impl util::TestingMode, stream: &mut impl Write) -> 
         // Go through the graveyard and exhume all the graves
         for line in record.lines_of_graves(&graves_to_exhume) {
             let entry = RecordItem::new(&line);
-            let orig: PathBuf = match util::symlink_exists(entry.orig) {
-                true => util::rename_grave(entry.orig),
-                false => PathBuf::from(entry.orig),
+            let orig: PathBuf = match util::symlink_exists(&entry.orig) {
+                true => util::rename_grave(&entry.orig),
+                false => PathBuf::from(&entry.orig),
             };
-            move_target(entry.dest, &orig, &mode, stream).map_err(|e| {
+            move_target(&entry.dest, &orig, &mode, stream).map_err(|e| {
                 Error::new(
                     e.kind(),
                     format!(
@@ -107,25 +97,23 @@ pub fn run(cli: Args, mode: impl util::TestingMode, stream: &mut impl Write) -> 
             )?;
         }
         record.log_exhumed_graves(&graves_to_exhume)?;
-
-        return Ok(());
-    }
-
-    if cli.seance {
+    } else if cli.seance {
         let gravepath = util::join_absolute(graveyard, dunce::canonicalize(cwd)?);
+        writeln!(stream, "{: <19}\tpath", "deletion_time")?;
         for grave in record.seance(&gravepath)? {
-            writeln!(stream, "{}", grave.display())?;
+            let parsed_time = chrono::DateTime::parse_from_rfc3339(&grave.time)
+                .expect("Failed to parse time from RFC3339 format")
+                .format("%Y-%m-%dT%H:%M:%S")
+                .to_string();
+            // Get the path separator:
+            writeln!(stream, "{}\t{}", parsed_time, grave.dest.display())?;
         }
-        return Ok(());
-    }
-
-    if cli.targets.is_empty() {
+    } else if cli.targets.is_empty() {
         Args::command().print_help()?;
-        return Ok(());
-    }
-
-    for target in cli.targets {
-        bury_target(&target, graveyard, &record, cwd, cli.inspect, &mode, stream)?;
+    } else {
+        for target in cli.targets {
+            bury_target(&target, graveyard, &record, cwd, cli.inspect, &mode, stream)?;
+        }
     }
 
     Ok(())
@@ -158,16 +146,11 @@ fn bury_target(
         cwd.join(target)
     };
 
-    if inspect {
-        let moved_to_graveyard = do_inspection(target, source, metadata, mode, stream)?;
-        if moved_to_graveyard {
-            return Ok(());
-        }
-    }
-
-    // If rip is called on a file already in the graveyard, prompt
-    // to permanently delete it instead.
-    if source.starts_with(graveyard) {
+    if inspect && !should_we_bury_this(target, source, metadata, mode, stream)? {
+        // User chose to not bury the file
+    } else if source.starts_with(graveyard) {
+        // If rip is called on a file already in the graveyard, prompt
+        // to permanently delete it instead.
         writeln!(stream, "{} is already in the graveyard.", source.display())?;
         if util::prompt_yes("Permanently unlink it?", mode, stream)? {
             if fs::remove_dir_all(source).is_err() {
@@ -175,40 +158,38 @@ fn bury_target(
                     Error::new(e.kind(), format!("Couldn't unlink {}", source.display()))
                 })?;
             }
-            return Ok(());
         } else {
             writeln!(stream, "Skipping {}", source.display())?;
             // TODO: In the original code, this was a hard return from the entire
             // method (i.e., `run`). I think it should just be a return from the bury
             // (meaning a `continue` in the original code's loop). But I'm not sure.
-            return Ok(());
         }
-    }
+    } else {
+        let dest: &Path = &{
+            let dest = util::join_absolute(graveyard, source);
+            // Resolve a name conflict if necessary
+            if util::symlink_exists(&dest) {
+                util::rename_grave(dest)
+            } else {
+                dest
+            }
+        };
 
-    let dest: &Path = &{
-        let dest = util::join_absolute(graveyard, source);
-        // Resolve a name conflict if necessary
-        if util::symlink_exists(&dest) {
-            util::rename_grave(dest)
-        } else {
-            dest
+        let moved = move_target(source, dest, mode, stream).map_err(|e| {
+            fs::remove_dir_all(dest).ok();
+            Error::new(e.kind(), "Failed to bury file")
+        })?;
+
+        if moved {
+            // Clean up any partial buries due to permission error
+            record.write_log(source, dest)?;
         }
-    };
-
-    let moved = move_target(source, dest, mode, stream).map_err(|e| {
-        fs::remove_dir_all(dest).ok();
-        Error::new(e.kind(), "Failed to bury file")
-    })?;
-
-    if moved {
-        // Clean up any partial buries due to permission error
-        record.write_log(source, dest)?;
     }
 
     Ok(())
 }
 
-fn do_inspection(
+fn should_we_bury_this(
     target: &Path,
     source: &PathBuf,
     metadata: &Metadata,
@@ -263,11 +244,11 @@ fn do_inspection(
             writeln!(stream, "Error reading {}", source.display())?;
         }
     }
-    Ok(!util::prompt_yes(
+    util::prompt_yes(
         format!("Send {} to the graveyard?", target.to_str().unwrap()),
         mode,
         stream,
-    )?)
+    )
 }
 
 /// Move a target to a given destination, copying if necessary.
