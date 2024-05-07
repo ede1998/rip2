@@ -107,13 +107,11 @@ pub fn run(cli: Args, mode: impl util::TestingMode, stream: &mut impl Write) -> 
             // Get the path separator:
             writeln!(stream, "{} {}", parsed_time, grave.dest.display())?;
         }
+    } else if cli.targets.is_empty() {
+        Args::command().print_help()?;
     } else {
-        if cli.targets.is_empty() {
-            Args::command().print_help()?;
-        } else {
-            for target in cli.targets {
-                bury_target(&target, graveyard, &record, cwd, cli.inspect, &mode, stream)?;
-            }
+        for target in cli.targets {
+            bury_target(&target, graveyard, &record, cwd, cli.inspect, &mode, stream)?;
         }
     }
 
@@ -245,11 +243,11 @@ fn should_we_bury_this(
             writeln!(stream, "Error reading {}", source.display())?;
         }
     }
-    Ok(util::prompt_yes(
+    util::prompt_yes(
         format!("Send {} to the graveyard?", target.to_str().unwrap()),
         mode,
         stream,
-    )?)
+    )
 }
 
 /// Move a target to a given destination, copying if necessary.
