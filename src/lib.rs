@@ -51,7 +51,6 @@ pub fn run(cli: Args, mode: impl util::TestingMode, stream: &mut impl Write) -> 
             fs::remove_dir_all(graveyard)?;
         }
     } else if let Some(mut graves_to_exhume) = cli.unbury {
-
         // Vector to hold the grave path of items we want to unbury.
         // This will be used to determine which items to remove from the
         // record following the unbury.
@@ -148,16 +147,11 @@ fn bury_target(
         cwd.join(target)
     };
 
-    if inspect {
-        let moved_to_graveyard = do_inspection(target, source, metadata, mode, stream)?;
-        if moved_to_graveyard {
-            return Ok(());
-        }
-    }
-
-    // If rip is called on a file already in the graveyard, prompt
-    // to permanently delete it instead.
-    if source.starts_with(graveyard) {
+    if inspect && do_inspection(target, source, metadata, mode, stream)? {
+        // User chose to not bury the file
+    } else if source.starts_with(graveyard) {
+        // If rip is called on a file already in the graveyard, prompt
+        // to permanently delete it instead.
         writeln!(stream, "{} is already in the graveyard.", source.display())?;
         if util::prompt_yes("Permanently unlink it?", mode, stream)? {
             if fs::remove_dir_all(source).is_err() {
@@ -165,34 +159,32 @@ fn bury_target(
                     Error::new(e.kind(), format!("Couldn't unlink {}", source.display()))
                 })?;
             }
-            return Ok(());
         } else {
             writeln!(stream, "Skipping {}", source.display())?;
             // TODO: In the original code, this was a hard return from the entire
             // method (i.e., `run`). I think it should just be a return from the bury
             // (meaning a `continue` in the original code's loop). But I'm not sure.
-            return Ok(());
         }
-    }
+    } else {
+        let dest: &Path = &{
+            let dest = util::join_absolute(graveyard, source);
+            // Resolve a name conflict if necessary
+            if util::symlink_exists(&dest) {
+                util::rename_grave(dest)
+            } else {
+                dest
+            }
+        };
 
-    let dest: &Path = &{
-        let dest = util::join_absolute(graveyard, source);
-        // Resolve a name conflict if necessary
-        if util::symlink_exists(&dest) {
-            util::rename_grave(dest)
-        } else {
-            dest
+        let moved = move_target(source, dest, mode, stream).map_err(|e| {
+            fs::remove_dir_all(dest).ok();
+            Error::new(e.kind(), "Failed to bury file")
+        })?;
+
+        if moved {
+            // Clean up any partial buries due to permission error
+            record.write_log(source, dest)?;
         }
-    };
-
-    let moved = move_target(source, dest, mode, stream).map_err(|e| {
-        fs::remove_dir_all(dest).ok();
-        Error::new(e.kind(), "Failed to bury file")
-    })?;
-
-    if moved {
-        // Clean up any partial buries due to permission error
-        record.write_log(source, dest)?;
     }
 
     Ok(())
