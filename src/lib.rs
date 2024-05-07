@@ -27,13 +27,6 @@ pub const BIG_FILE_THRESHOLD: u64 = 500000000; // 500 MB
 
 pub fn run(cli: Args, mode: impl util::TestingMode, stream: &mut impl Write) -> Result<(), Error> {
     args::validate_args(&cli)?;
-    // This selects the location of deleted
-    // files based on the following order (from
-    // first choice to last):
-    // 1. Path passed with --graveyard
-    // 2. Path pointed by the $GRAVEYARD variable
-    // 3. $XDG_DATA_HOME/graveyard (only if XDG_DATA_HOME is defined)
-    // 4. /tmp/graveyard-user
     let graveyard: &PathBuf = &get_graveyard(cli.graveyard);
 
     if !graveyard.exists() {

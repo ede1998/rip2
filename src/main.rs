@@ -22,8 +22,11 @@ fn main() -> ExitCode {
         Some(Commands::Graveyard { seance }) => {
             let graveyard = rip2::get_graveyard(None);
             if *seance {
-                let cwd = &env::current_dir().unwrap();
-                let gravepath = util::join_absolute(graveyard, dunce::canonicalize(cwd).unwrap());
+                let cwd = env::current_dir().expect("Failed to get current directory");
+                let gravepath = util::join_absolute(
+                    graveyard,
+                    dunce::canonicalize(cwd).expect("Failed to get current directory"),
+                );
                 print!("{}", gravepath.display());
             } else {
                 print!("{}", graveyard.display());
