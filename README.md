@@ -64,12 +64,6 @@ nix run "https://github.com/MilesCranmer/rip2"
 nix shell "https://github.com/MilesCranmer/rip2"
 ```
 
-#### Add To Path Temporarily (No Flakes)
-
-```bash
-nix-shell "https://github.com/MilesCranmer/rip2"
-```
-
 #### Flake minimal setup
 
 ```nix
