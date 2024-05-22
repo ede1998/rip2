@@ -44,7 +44,7 @@ $ cargo install --locked rip2
 ### Binaries
 
 Binary releases for different architectures and operating systems are
-made available on the GitHub releases page: https://github.com/MilesCranmer/rip2/releases/tag/v0.5.1
+made available on the GitHub releases page: https://github.com/MilesCranmer/rip2/releases/
 
 To install, simply open the archive and move the binary somewhere you can run it.
 
