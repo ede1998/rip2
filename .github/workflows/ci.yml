@@ -56,6 +56,15 @@ jobs:
         run: cargo doc --all --no-deps
       - name: Test with code coverage
         run: cargo tarpaulin --release --engine llvm --follow-exec --post-test-delay 10 --coveralls ${{ secrets.COVERALLS_REPO_TOKEN }}
+<<<<<<< Updated upstream
+=======
+      - name: Check Nix flake inputs
+        uses: DeterminateSystems/flake-checker-action@v4
+      - name: Install Nix
+        uses: DeterminateSystems/nix-installer-action@v3
+      - name: Build default package
+        run: nix build
+>>>>>>> Stashed changes
 
   release-please:
     name: Execute release chores
