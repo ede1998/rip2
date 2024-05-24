@@ -66,7 +66,7 @@ jobs:
       - name: Install Nix
         uses: DeterminateSystems/nix-installer-action@v3
       - name: Build default package
-        run: nix build
+        run: nix-build
       - name: Smoke test default package
         run: ./result/bin/rip2 --version
 
