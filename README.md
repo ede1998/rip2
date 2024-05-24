@@ -48,16 +48,18 @@ made available on the GitHub releases page: https://github.com/MilesCranmer/rip2
 
 To install, simply open the archive and move the binary somewhere you can run it.
 
-<details>
-<summary>Nix</summary>
+### Nix
 
-This repository is flake-compatible, and backwards-compatible with non-flake systems using `flake-compat`. It uses `naersk` to build the Rust package from source.
-
-#### Try Out Before Installing (With Flakes)
+This repository is flake-compatible, and backwards-compatible with non-flake systems. Just run the following to test it out:
 
 ```bash
 nix run "https://github.com/MilesCranmer/rip2"
 ```
+
+<details>
+<summary>Additional Nix options</summary>
+
+The repo uses `flake-compat` for compatibility, and `naersk` to build the Rust package from source.
 
 #### Add To Path Temporarily (With Flakes)
 
