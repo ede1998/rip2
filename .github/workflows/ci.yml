@@ -60,6 +60,7 @@ jobs:
   nix:
     runs-on: ubuntu-latest
     steps:
+      - uses: actions/checkout@v4
       - name: Check Nix flake inputs
         uses: DeterminateSystems/flake-checker-action@v4
       - name: Install Nix
