@@ -48,6 +48,61 @@ made available on the GitHub releases page: https://github.com/MilesCranmer/rip2
 
 To install, simply open the archive and move the binary somewhere you can run it.
 
+### Nix
+
+This repository is flake-compatible, and backwards-compatible with non-flake systems. Just run the following to test it out:
+
+```bash
+nix run "https://github.com/MilesCranmer/rip2"
+```
+
+<details>
+<summary>Additional Nix options</summary>
+
+The repo uses `flake-compat` for compatibility, and `naersk` to build the Rust package from source.
+
+#### Add To Path Temporarily (With Flakes)
+
+```bash
+nix shell "https://github.com/MilesCranmer/rip2"
+```
+
+#### Flake minimal setup
+
+```nix
+# flake.nix
+{
+  inputs = {
+    nixpkgs.url = "github:NixOS/nixpkgs/nixos-unstable";
+    rip2 = {
+      url = "github:MilesCranmer/rip2";
+      inputs.nixpkgs.follows = "nixpkgs";
+    };
+  };
+
+  outputs = inputs@{ self, nixpkgs, rip2, ... }:
+  {
+    nixosConfigurations.your-host = let
+      system = "x86_64-linux";
+      lib = nixpkgs.lib;
+    in lib.nixosSystem {
+      inherit system;
+      modules = [
+        ./configuration.nix # or other configuration options
+        # ...
+        {
+          environment.systemPackages = [
+            rip2.packages.${system}.default
+          ];
+        }
+      ];
+    };
+  };
+}
+```
+</details>
+
+
 ## Usage
 
 ```text
