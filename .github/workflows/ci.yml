@@ -68,7 +68,7 @@ jobs:
       - name: Build default package
         run: nix-build
       - name: Smoke test default package
-        run: ./result/bin/rip2 --version
+        run: ./result/bin/rip --version
 
   release-please:
     name: Execute release chores
