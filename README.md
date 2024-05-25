@@ -19,14 +19,11 @@ This version, "rip2", is a fork-of-a-fork:
 1. [nivekuil/rip](https://github.com/nivekuil/rip), the original, which has been unmaintained since 2020.
 2. [StandingPadAnimation/rip](https://github.com/StandingPadAnimations/rip) who added a few features.
 3. Finally, that repo was forked [@here](https://github.com/MilesCranmer/rip2) with ongoing maintenance:
-    - Windows support
-    - Refactoring to modern rust
-    - Colorful output
-    - Test suite and coverage
-    - Shell completions
-    - Added a few unmerged PRs from the original repo
-    - Bug fix for FIFO files
-    - Bug fix for seance
+    - Support: Windows, NixOS
+    - Cleanup: refactoring to modern rust, merging PRs from original repo
+    - Testing: add full test suite and coverage monitoring
+    - Features: colorful output, datetime info in seance, 
+    - Bug fixes: FIFO files, issue with seance
 
 ## ⚰️ Installation
 
