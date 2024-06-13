@@ -100,6 +100,13 @@ nix shell "https://github.com/MilesCranmer/rip2"
 </details>
 
 
+### openSUSE
+
+```
+zypper ar -f obs://utilities
+zypper in rip2
+```
+
 ## Usage
 
 ```text
