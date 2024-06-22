@@ -26,6 +26,10 @@
             rip2
           ];
         };
+        apps.default = {
+          type = "app";
+          program = "${rip2}/bin/rip";
+        };
       };
     };
 }
