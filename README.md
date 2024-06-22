@@ -45,7 +45,11 @@ made available on the GitHub releases page: https://github.com/MilesCranmer/rip2
 
 To install, simply open the archive and move the binary somewhere you can run it.
 
-### Nix
+### Other
+
+<details><summary>A few other package managers have contributed support:</summary>
+
+#### Nix
 
 This repository is flake-compatible, and backwards-compatible with non-flake systems. Just run the following to test it out:
 
@@ -58,13 +62,13 @@ nix run "github:MilesCranmer/rip2"
 
 The repo uses `flake-compat` for compatibility, and `naersk` to build the Rust package from source.
 
-#### Add To Path Temporarily (With Flakes)
+**Add To Path Temporarily (With Flakes)**:
 
 ```bash
 nix shell "github:MilesCranmer/rip2"
 ```
 
-#### Flake minimal setup
+**Flake minimal setup**:
 
 ```nix
 # flake.nix
@@ -106,6 +110,8 @@ nix shell "github:MilesCranmer/rip2"
 zypper ar -f obs://utilities
 zypper in rip2
 ```
+
+</details>
 
 ## Usage
 
