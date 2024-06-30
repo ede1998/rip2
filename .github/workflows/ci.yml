@@ -97,8 +97,7 @@ jobs:
         id: release
         with:
           release-type: rust
-          bump-patch-for-minor-pre-major: true
-          bump-minor-pre-major: true
+          manifest-file: .release-please-manifest.json
 
   publish:
     name: Publish to crates.io
