@@ -1,7 +1,6 @@
 {
   "packages": {
     ".": {
-      "package-name": "rip2",
       "changelog-path": "CHANGELOG.md",
       "release-type": "rust",
       "bump-minor-pre-major": true,
