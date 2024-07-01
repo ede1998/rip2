@@ -50,7 +50,7 @@ Generate the shell completions file
 {header}Usage{rheader}: {rip_s}rip completions{rrip_s} <{place}SHELL{rplace}>
 
 {header}Arguments{rheader}:
-    <{place}SHELL{rplace}>  The shell to generate completions for
+    <{place}SHELL{rplace}>  The shell to generate completions for (bash, elvish, fish, powershell, zsh, nushell)
 
 {header}Options{rheader}:
 {OPTIONS_PLACEHOLDER}
