@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.8.1](https://github.com/MilesCranmer/rip2/compare/v0.8.0...v0.8.1) (2024-07-01)
+
+
+### Miscellaneous Chores
+
+* trigger release ([e46d261](https://github.com/MilesCranmer/rip2/commit/e46d2613e539566760521905d85194690d6efba2))
+
 ## [0.8.0](https://github.com/MilesCranmer/rip2/compare/v0.7.0...v0.8.0) (2024-05-07)
 
 
