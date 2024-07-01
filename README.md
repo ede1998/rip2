@@ -45,22 +45,24 @@ made available on the GitHub releases page: https://github.com/MilesCranmer/rip2
 
 To install, simply open the archive and move the binary somewhere you can run it.
 
-### Other
-
-<details><summary>A few other package managers have contributed support:</summary>
-
-#### Nix
+### Nix
 
 This repository is flake-compatible, and backwards-compatible with non-flake systems. Just run the following to test it out:
 
 ```bash
-nix run "github:MilesCranmer/rip2"
+nix develop "github:MilesCranmer/rip2"
 ```
 
-<details>
-<summary>Additional Nix options</summary>
+### Other
+
+<details><summary>A few other package managers have contributed support:</summary>
+
+
+### Additional Nix options
 
 The repo uses `flake-compat` for compatibility, and `naersk` to build the Rust package from source.
+
+<details><summary>Details:</summary>
 
 **Add To Path Temporarily (With Flakes)**:
 
@@ -84,7 +86,7 @@ nix shell "github:MilesCranmer/rip2"
   outputs = inputs@{ self, nixpkgs, rip2, ... }:
   {
     nixosConfigurations.your-host = let
-      system = "x86_64-linux";
+      system = "x86_64-linux";  # or your system
       lib = nixpkgs.lib;
     in lib.nixosSystem {
       inherit system;
