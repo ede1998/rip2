@@ -3,7 +3,6 @@
     nixpkgs.url = "github:NixOS/nixpkgs";
     flake-parts.url = "github:hercules-ci/flake-parts";
     naersk.url = "github:nix-community/naersk";
-    flake-compat.url = "https://flakehub.com/f/edolstra/flake-compat/1.tar.gz";
   };
   outputs = { flake-parts, naersk, nixpkgs, ... }@inputs:
     flake-parts.lib.mkFlake { inherit inputs; } {
@@ -19,12 +18,12 @@
         rip2 = naersk'.buildPackage {
           src = ./.;
         };
-      in {
+      in
+      with pkgs;
+      {
         packages.default = rip2;
-        devShells.default = pkgs.mkShell {
-          packages = [
-            rip2
-          ];
+        devShells.default = mkShell {
+          buildInputs = [ rip2 ];
         };
         apps.default = {
           type = "app";
