@@ -24,6 +24,7 @@ This version, "rip2", is a fork-of-a-fork:
     - Testing: add full test suite and coverage monitoring
     - Features: colorful output, datetime info in seance, 
     - Bug fixes: FIFO files, issue with seance
+    - Shell completions for bash, elvish, fish, powershell, zsh, and nushell (via clap)
 
 ## ⚰️ Installation
 
