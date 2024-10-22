@@ -1,4 +1,5 @@
 use chrono::Local;
+use fs4::fs_std::FileExt;
 use std::io::{BufRead, BufReader, Error, ErrorKind, Write};
 use std::path::{Path, PathBuf};
 use std::{fs, io};
@@ -46,6 +47,7 @@ impl Record {
                 .write(true)
                 .open(&path)
                 .expect("Failed to open record file");
+            record_file.lock_exclusive().unwrap();
             record_file
                 .write_all(b"Time\tOriginal\tDestination\n")
                 .expect("Failed to write header to record file");
@@ -54,8 +56,10 @@ impl Record {
     }
 
     pub fn open(&self) -> Result<fs::File, Error> {
-        fs::File::open(&self.path)
-            .map_err(|_| Error::new(ErrorKind::NotFound, "Failed to read record!"))
+        let file = fs::File::open(&self.path)
+            .map_err(|_| Error::new(ErrorKind::NotFound, "Failed to read record!"))?;
+        file.lock_exclusive().unwrap();
+        Ok(file)
     }
 
     /// Return the path in the graveyard of the last file to be buried.
@@ -168,10 +172,12 @@ impl Record {
                 .truncate(true)
                 .write(true)
                 .open(&self.path)?;
+            record_file.lock_exclusive().unwrap();
             writeln!(record_file, "Time\tOriginal\tDestination")?;
         }
 
         let mut record_file = fs::OpenOptions::new().append(true).open(&self.path)?;
+        record_file.lock_exclusive().unwrap();
 
         writeln!(
             record_file,
