@@ -18,7 +18,7 @@ This version, "rip2", is a fork-of-a-fork:
 
 1. [nivekuil/rip](https://github.com/nivekuil/rip), the original, which has been unmaintained since 2020.
 2. [StandingPadAnimation/rip](https://github.com/StandingPadAnimations/rip) who added a few features.
-3. Finally, that repo was forked [@here](https://github.com/MilesCranmer/rip2) with ongoing maintenance:
+3. Finally, that repo was forked [@here](https://github.com/MilesCranmer/rip2). Changes include:
     - **Expanded support**: Windows, NixOS
     - **Cleanup**: refactoring to modern rust, merging PRs from original repo
     - **Testing**: add full test suite and coverage monitoring
