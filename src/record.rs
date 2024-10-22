@@ -30,6 +30,13 @@ impl RecordItem {
     }
 }
 
+/// A record of file operations maintained in the graveyard directory
+///
+/// # Type Parameters
+///
+/// * `FILE_LOCK` - When `true`, exclusive file locks are acquired when opening
+///   the record file for reading or writing. This prevents concurrent access from multiple
+///   processes. When `false`, no file locking is performed - which is used for testing.
 #[derive(Debug)]
 pub struct Record<const FILE_LOCK: bool> {
     path: PathBuf,
