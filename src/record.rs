@@ -159,10 +159,16 @@ impl Record {
     /// Write deletion history to record
     pub fn write_log(&self, source: impl AsRef<Path>, dest: impl AsRef<Path>) -> io::Result<()> {
         let (source, dest) = (source.as_ref(), dest.as_ref());
-        let mut record_file = fs::OpenOptions::new()
-            .create(true)
-            .append(true)
-            .open(&self.path)?;
+
+        // Check if record exists. If not, create it and write the header.
+        // TODO: Is this actually necessary?
+        if !self.path.exists() {
+            let mut record_file = self.open()?;
+            writeln!(record_file, "Time\tOriginal\tDestination")?;
+        }
+
+        let mut record_file = fs::OpenOptions::new().append(true).open(&self.path)?;
+
         writeln!(
             record_file,
             "{}\t{}\t{}",
