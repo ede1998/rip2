@@ -1053,31 +1053,27 @@ fn _test_concurrent_writes<const FILE_LOCK: bool>() {
         assert!(record_contents.contains("Time"));
         assert!(record_contents.contains("Original"));
         assert!(record_contents.contains("Destination"));
+    }
 
-        // Check that we have 2000 lines precisely, and each line is formatted correctly,
-        let re = regex::Regex::new(
-            r"^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}(\.\d+)?(Z|[+-]\d{2}:\d{2})\t.+\t.+$",
-        )
-        .unwrap();
-        let lines: Vec<&str> = record_contents.lines().collect();
-        assert_eq!(lines.len(), 2001); // 200 entries + 1 header line
-        for line in lines.iter().skip(1) {
-            assert!(re.is_match(line));
-        }
+    let lines: Vec<&str> = record_contents.lines().collect();
+
+    if FILE_LOCK {
+        assert_eq!(lines.len(), 2001);
+    }
+
+    // Check each of the 2000 lines for corruption
+    let re = regex::Regex::new(
+        r"^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}(\.\d+)?(Z|[+-]\d{2}:\d{2})\t.+\t.+$",
+    )
+    .unwrap();
+    let corrupted_lines = lines
+        .iter()
+        .skip(1)
+        .filter(|line| !re.is_match(line))
+        .count();
+    if FILE_LOCK {
+        assert_eq!(corrupted_lines, 0);
     } else {
-        let re = regex::Regex::new(
-            r"^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}(\.\d+)?(Z|[+-]\d{2}:\d{2})\t.+\t.+$",
-        )
-        .unwrap();
-        let lines: Vec<&str> = record_contents.lines().collect();
-        // Now, we expect SOME lines to be corrupted.
-        let mut corrupted_lines = 0;
-        for line in lines.iter().skip(1) {
-            if !re.is_match(line) {
-                corrupted_lines += 1;
-            }
-        }
         assert!(corrupted_lines > 0);
-        // This is a validation that our test even works.
     }
 }
