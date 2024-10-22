@@ -163,7 +163,11 @@ impl Record {
         // Check if record exists. If not, create it and write the header.
         // TODO: Is this actually necessary?
         if !self.path.exists() {
-            let mut record_file = self.open()?;
+            let mut record_file = fs::OpenOptions::new()
+                .create(true)
+                .truncate(true)
+                .write(true)
+                .open(&self.path)?;
             writeln!(record_file, "Time\tOriginal\tDestination")?;
         }
 
