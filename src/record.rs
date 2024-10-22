@@ -31,12 +31,12 @@ impl RecordItem {
 }
 
 #[derive(Debug)]
-pub struct Record {
+pub struct Record<const FILE_LOCK: bool> {
     path: PathBuf,
 }
 
-impl Record {
-    pub fn new(graveyard: &Path) -> Record {
+impl<const FILE_LOCK: bool> Record<FILE_LOCK> {
+    pub fn new(graveyard: &Path) -> Record<FILE_LOCK> {
         let path = graveyard.join(RECORD);
         // Create the record file if it doesn't exist
         if !path.exists() {
@@ -47,7 +47,9 @@ impl Record {
                 .write(true)
                 .open(&path)
                 .expect("Failed to open record file");
-            record_file.lock_exclusive().unwrap();
+            if FILE_LOCK {
+                record_file.lock_exclusive().unwrap();
+            }
             record_file
                 .write_all(b"Time\tOriginal\tDestination\n")
                 .expect("Failed to write header to record file");
@@ -58,7 +60,9 @@ impl Record {
     pub fn open(&self) -> Result<fs::File, Error> {
         let file = fs::File::open(&self.path)
             .map_err(|_| Error::new(ErrorKind::NotFound, "Failed to read record!"))?;
-        file.lock_exclusive().unwrap();
+        if FILE_LOCK {
+            file.lock_exclusive().unwrap();
+        }
         Ok(file)
     }
 
@@ -172,12 +176,19 @@ impl Record {
                 .truncate(true)
                 .write(true)
                 .open(&self.path)?;
-            record_file.lock_exclusive().unwrap();
+            if FILE_LOCK {
+                record_file.lock_exclusive().unwrap();
+            }
             writeln!(record_file, "Time\tOriginal\tDestination")?;
+            if FILE_LOCK {
+                record_file.unlock().unwrap();
+            }
         }
 
         let mut record_file = fs::OpenOptions::new().append(true).open(&self.path)?;
-        record_file.lock_exclusive().unwrap();
+        if FILE_LOCK {
+            record_file.lock_exclusive().unwrap();
+        }
 
         writeln!(
             record_file,
@@ -194,5 +205,14 @@ impl Record {
         })?;
 
         Ok(())
+    }
+}
+
+
+impl<const FILE_LOCK: bool> Clone for Record<FILE_LOCK> {
+    fn clone(&self) -> Self {
+        Record {
+            path: self.path.clone(),
+        }
     }
 }

@@ -2,6 +2,7 @@ use lazy_static::lazy_static;
 use predicates::str::is_match;
 use rand::distributions::Alphanumeric;
 use rand::{thread_rng, Rng};
+use regex;
 use rip2::args::Args;
 use rip2::record;
 use rip2::util::TestMode;
@@ -11,7 +12,7 @@ use std::fs;
 use std::hash::{DefaultHasher, Hash, Hasher};
 use std::io::{BufReader, ErrorKind, Read, Write};
 use std::path::PathBuf;
-use std::sync::{Mutex, MutexGuard};
+use std::sync::{Arc, Barrier, Mutex, MutexGuard};
 use std::{env, ffi, iter};
 use tempfile::{tempdir, TempDir};
 use walkdir::WalkDir;
@@ -638,7 +639,7 @@ fn issue_0018() {
         assert!(!record_contents.contains("gnu_meta.zip"));
 
         // And give this for the last bury
-        let record = record::Record::new(&test_env.graveyard);
+        let record = record::Record::<true>::new(&test_env.graveyard);
         let last_bury = record.get_last_bury().unwrap();
         assert!(last_bury.ends_with("uu_meta.zip"));
     }
@@ -708,7 +709,7 @@ fn read_empty_record() {
     let test_env = TestEnv::new();
     let cwd = env::current_dir().unwrap();
     fs::create_dir(&test_env.graveyard).unwrap();
-    let record = record::Record::new(&test_env.graveyard);
+    let record = record::Record::<true>::new(&test_env.graveyard);
     let gravepath = &util::join_absolute(&test_env.graveyard, dunce::canonicalize(cwd).unwrap());
     let result = record.seance(gravepath);
     assert!(result.is_ok());
@@ -987,4 +988,96 @@ fn test_bury_unbury_bury_unbury() {
     assert!(test_data.path.exists());
     let restored_data = fs::read_to_string(&test_data.path).unwrap();
     assert_eq!(restored_data, test_data.data);
+}
+
+/// Test concurrent writes to the pre-existing record file
+#[rstest]
+fn test_concurrent_writes(#[values(false, true)] file_lock: bool) {
+    if file_lock {
+        _test_concurrent_writes::<true>();
+    } else {
+        match std::thread::available_parallelism() {
+            Ok(num_threads) if num_threads.get() > 1 => {
+                _test_concurrent_writes::<false>();
+            }
+            _ => {
+                // If we don't have multiple threads, skip this test
+                println!(
+                    "Warning: skipping test_concurrent_writes because we don't have multiple threads"
+                );
+            }
+        }
+    }
+}
+fn _test_concurrent_writes<const FILE_LOCK: bool>() {
+    let _env_lock = aquire_lock();
+    let test_env = TestEnv::new();
+    fs::create_dir(&test_env.graveyard).unwrap();
+    let record = record::Record::<FILE_LOCK>::new(&test_env.graveyard);
+    let record_path = test_env.graveyard.join(record::RECORD);
+
+    // Create two threads that will write to the record simultaneously
+    let barrier = Arc::new(Barrier::new(2));
+
+    let barrier_from_1 = barrier.clone();
+    let record_from_1 = record.clone();
+    let handle1 = std::thread::spawn(move || {
+        barrier_from_1.wait();
+        for i in 0..1000 {
+            record_from_1
+                .write_log(format!("src_path_{}", i), format!("dest_path_{}", i))
+                .unwrap();
+        }
+    });
+
+    let barrier_from_2 = barrier.clone();
+    let record_from_2 = record.clone();
+    let handle2 = std::thread::spawn(move || {
+        barrier_from_2.wait();
+        for i in 1000..2000 {
+            record_from_2
+                .write_log(format!("src_path_{}", i), format!("dest_path_{}", i))
+                .unwrap();
+        }
+    });
+
+    // Wait for both threads to complete
+    handle1.join().unwrap();
+    handle2.join().unwrap();
+
+    let record_contents = fs::read_to_string(&record_path).unwrap();
+
+    // The file should be perfectly formatted if `with_locking` is true,
+    // but corrupted if it is not
+    if FILE_LOCK {
+        assert!(record_contents.contains("Time"));
+        assert!(record_contents.contains("Original"));
+        assert!(record_contents.contains("Destination"));
+
+        // Check that we have 2000 lines precisely, and each line is formatted correctly,
+        let re = regex::Regex::new(
+            r"^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}(\.\d+)?(Z|[+-]\d{2}:\d{2})\t.+\t.+$",
+        )
+        .unwrap();
+        let lines: Vec<&str> = record_contents.lines().collect();
+        assert_eq!(lines.len(), 2001); // 200 entries + 1 header line
+        for line in lines.iter().skip(1) {
+            assert!(re.is_match(line));
+        }
+    } else {
+        let re = regex::Regex::new(
+            r"^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}(\.\d+)?(Z|[+-]\d{2}:\d{2})\t.+\t.+$",
+        )
+        .unwrap();
+        let lines: Vec<&str> = record_contents.lines().collect();
+        // Now, we expect SOME lines to be corrupted.
+        let mut corrupted_lines = 0;
+        for line in lines.iter().skip(1) {
+            if !re.is_match(line) {
+                corrupted_lines += 1;
+            }
+        }
+        assert!(corrupted_lines > 0);
+        // This is a validation that our test even works.
+    }
 }

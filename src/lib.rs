@@ -42,7 +42,7 @@ pub fn run(cli: Args, mode: impl util::TestingMode, stream: &mut impl Write) -> 
     }
 
     // Stores the deleted files
-    let record = Record::new(graveyard);
+    let record = Record::<true>::new(graveyard);
     let cwd = &env::current_dir()?;
 
     // If the user wishes to restore everything
@@ -119,10 +119,10 @@ pub fn run(cli: Args, mode: impl util::TestingMode, stream: &mut impl Write) -> 
     Ok(())
 }
 
-fn bury_target(
+fn bury_target<const FILE_LOCK: bool>(
     target: &PathBuf,
     graveyard: &PathBuf,
-    record: &Record,
+    record: &Record<FILE_LOCK>,
     cwd: &Path,
     inspect: bool,
     mode: &impl util::TestingMode,
