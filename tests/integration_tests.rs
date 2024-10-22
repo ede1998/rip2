@@ -878,10 +878,7 @@ fn many_nest() {
 }
 
 #[rstest]
-fn test_bury_unbury_bury_unbury(
-    #[values("bury", "bury_unbury", "bury_unbury_bury", "bury_unbury_bury_unbury")]
-    expected_state: &str,
-) {
+fn test_bury_unbury_bury_unbury() {
     let _env_lock = aquire_lock();
 
     let test_env = TestEnv::new();
@@ -908,10 +905,6 @@ fn test_bury_unbury_bury_unbury(
     // Verify that the file is in the graveyard
     assert!(!test_data.path.exists());
     assert!(expected_graveyard_path.exists());
-
-    if expected_state == "bury" {
-        return;
-    }
 
     // Get the record file's contents:
     let record_path = test_env.graveyard.join(record::RECORD);
@@ -948,10 +941,6 @@ fn test_bury_unbury_bury_unbury(
     assert!(record_contents.contains("Original"));
     assert!(record_contents.contains("Destination"));
 
-    if expected_state == "bury_unbury" {
-        return;
-    }
-
     // Second bury
     let mut log = Vec::new();
     rip2::run(
@@ -979,10 +968,6 @@ fn test_bury_unbury_bury_unbury(
 
     println!("Final record contents:\n{}", record_contents);
 
-    if expected_state == "bury_unbury_bury" {
-        return;
-    }
-
     // Second unbury
     let mut log = Vec::new();
     rip2::run(
@@ -1000,5 +985,4 @@ fn test_bury_unbury_bury_unbury(
     assert!(test_data.path.exists());
     let restored_data = fs::read_to_string(&test_data.path).unwrap();
     assert_eq!(restored_data, test_data.data);
-    assert!(expected_state == "bury_unbury_bury_unbury");
 }
