@@ -25,7 +25,7 @@ This version, "rip2", is a fork-of-a-fork:
     - Features: colorful output, datetime info in seance
     - Bug fixes: FIFO files, issue with seance
     - Shell completions for bash, elvish, fish, powershell, zsh, and nushell (via clap)
-    - Thread safety for deletion record
+    - Safe operation from concurrent processes
 
 ## ⚰️ Installation
 
