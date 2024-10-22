@@ -1,6 +1,6 @@
 use chrono::Local;
 use fs4::fs_std::FileExt;
-use std::io::{BufRead, BufReader, Error, ErrorKind, Write};
+use std::io::{BufRead, BufReader, Error, ErrorKind, Read, Write};
 use std::path::{Path, PathBuf};
 use std::{fs, io};
 
@@ -72,10 +72,8 @@ impl<const FILE_LOCK: bool> Record<FILE_LOCK> {
     pub fn get_last_bury(&self) -> Result<PathBuf, Error> {
         // record: impl AsRef<Path>
         let record_file = self.open()?;
-        let contents = {
-            let path_f = PathBuf::from(&self.path);
-            fs::read_to_string(path_f)?
-        };
+        let mut contents = String::new();
+        BufReader::new(&record_file).read_to_string(&mut contents)?;
 
         // This will be None if there is nothing, or Some
         // if there is items in the vector
@@ -117,10 +115,18 @@ impl<const FILE_LOCK: bool> Record<FILE_LOCK> {
             .map_while(Result::ok)
             .filter(|line| !graves.iter().any(|y| *y == RecordItem::new(line).dest))
             .collect();
-        let mut mutable_record_file = fs::File::create(record_path)?;
-        writeln!(mutable_record_file, "{}", header)?; // Write the header back
+        // let mut new_record_file = fs::File::create(record_path)?;
+        let mut new_record_file = fs::OpenOptions::new()
+            .create(true)
+            .truncate(true)
+            .write(true)
+            .open(record_path)?;
+        if FILE_LOCK {
+            new_record_file.lock_exclusive().unwrap();
+        }
+        writeln!(new_record_file, "{}", header)?; // Write the header back
         for line in lines_to_write {
-            writeln!(mutable_record_file, "{}", line)?;
+            writeln!(new_record_file, "{}", line)?;
         }
         Ok(())
     }
@@ -168,26 +174,24 @@ impl<const FILE_LOCK: bool> Record<FILE_LOCK> {
     pub fn write_log(&self, source: impl AsRef<Path>, dest: impl AsRef<Path>) -> io::Result<()> {
         let (source, dest) = (source.as_ref(), dest.as_ref());
 
-        // Check if record exists. If not, create it and write the header.
-        // TODO: Is this actually necessary?
-        if !self.path.exists() {
-            let mut record_file = fs::OpenOptions::new()
+        let already_existed = self.path.exists();
+
+        let mut record_file = if already_existed {
+            fs::OpenOptions::new().append(true).open(&self.path)?
+        } else {
+            fs::OpenOptions::new()
                 .create(true)
                 .truncate(true)
                 .write(true)
-                .open(&self.path)?;
-            if FILE_LOCK {
-                record_file.lock_exclusive().unwrap();
-            }
-            writeln!(record_file, "Time\tOriginal\tDestination")?;
-            if FILE_LOCK {
-                record_file.unlock().unwrap();
-            }
-        }
+                .open(&self.path)?
+        };
 
-        let mut record_file = fs::OpenOptions::new().append(true).open(&self.path)?;
         if FILE_LOCK {
             record_file.lock_exclusive().unwrap();
+        }
+
+        if !already_existed {
+            writeln!(record_file, "Time\tOriginal\tDestination")?;
         }
 
         writeln!(
@@ -207,7 +211,6 @@ impl<const FILE_LOCK: bool> Record<FILE_LOCK> {
         Ok(())
     }
 }
-
 
 impl<const FILE_LOCK: bool> Clone for Record<FILE_LOCK> {
     fn clone(&self) -> Self {
