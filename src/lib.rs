@@ -129,7 +129,7 @@ fn bury_target(
     stream: &mut impl Write,
 ) -> Result<(), Error> {
     // Check if source exists
-    let metadata = &fs::symlink_metadata(target).map_err(|_| {
+    let metadata = fs::symlink_metadata(target).map_err(|_| {
         Error::new(
             ErrorKind::NotFound,
             format!(
@@ -192,7 +192,7 @@ fn bury_target(
 fn should_we_bury_this(
     target: &Path,
     source: &PathBuf,
-    metadata: &Metadata,
+    metadata: Metadata,
     mode: &impl util::TestingMode,
     stream: &mut impl Write,
 ) -> Result<bool, Error> {
