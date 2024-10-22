@@ -2,7 +2,6 @@ use lazy_static::lazy_static;
 use predicates::str::is_match;
 use rand::distributions::Alphanumeric;
 use rand::{thread_rng, Rng};
-use regex;
 use rip2::args::Args;
 use rip2::record;
 use rip2::util::TestMode;
@@ -910,8 +909,8 @@ fn test_bury_unbury_bury_unbury() {
 
     // Get the record file's contents:
     let record_path = test_env.graveyard.join(record::RECORD);
-    assert!(record_path.exists());
-    let record_contents = fs::read_to_string(&record_path).unwrap();
+    assert!(record_path.clone().exists());
+    let record_contents = fs::read_to_string(record_path.clone()).unwrap();
     println!("Initial record contents:\n{}", record_contents);
 
     assert!(record_contents.contains(&normalized_test_data_path.display().to_string()));
@@ -935,8 +934,8 @@ fn test_bury_unbury_bury_unbury() {
     assert_eq!(restored_data, test_data.data);
 
     // Get the new record file's contents:
-    assert!(record_path.exists());
-    let record_contents = fs::read_to_string(&record_path).unwrap();
+    assert!(record_path.clone().exists());
+    let record_contents = fs::read_to_string(record_path.clone()).unwrap();
     println!("After first unbury, record contents:\n{}", record_contents);
 
     // The record should still have the header:
@@ -1045,7 +1044,7 @@ fn _test_concurrent_writes<const FILE_LOCK: bool>() {
     handle1.join().unwrap();
     handle2.join().unwrap();
 
-    let record_contents = fs::read_to_string(&record_path).unwrap();
+    let record_contents = fs::read_to_string(record_path.clone()).unwrap();
 
     // The file should be perfectly formatted if `with_locking` is true,
     // but corrupted if it is not
