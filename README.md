@@ -22,9 +22,10 @@ This version, "rip2", is a fork-of-a-fork:
     - Added support for: Windows, NixOS
     - Cleanup: refactoring to modern rust, merging PRs from original repo
     - Testing: add full test suite and coverage monitoring
-    - Features: colorful output, datetime info in seance, 
+    - Features: colorful output, datetime info in seance
     - Bug fixes: FIFO files, issue with seance
     - Shell completions for bash, elvish, fish, powershell, zsh, and nushell (via clap)
+    - Thread safety for deletion record
 
 ## ⚰️ Installation
 

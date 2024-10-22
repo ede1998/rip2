@@ -11,7 +11,7 @@ use std::fs;
 use std::hash::{DefaultHasher, Hash, Hasher};
 use std::io::{BufReader, ErrorKind, Read, Write};
 use std::path::PathBuf;
-use std::sync::{Mutex, MutexGuard};
+use std::sync::{Arc, Barrier, Mutex, MutexGuard};
 use std::{env, ffi, iter};
 use tempfile::{tempdir, TempDir};
 use walkdir::WalkDir;
@@ -638,7 +638,7 @@ fn issue_0018() {
         assert!(!record_contents.contains("gnu_meta.zip"));
 
         // And give this for the last bury
-        let record = record::Record::new(&test_env.graveyard);
+        let record = record::Record::<{ record::DEFAULT_FILE_LOCK }>::new(&test_env.graveyard);
         let last_bury = record.get_last_bury().unwrap();
         assert!(last_bury.ends_with("uu_meta.zip"));
     }
@@ -708,7 +708,7 @@ fn read_empty_record() {
     let test_env = TestEnv::new();
     let cwd = env::current_dir().unwrap();
     fs::create_dir(&test_env.graveyard).unwrap();
-    let record = record::Record::new(&test_env.graveyard);
+    let record = record::Record::<{ record::DEFAULT_FILE_LOCK }>::new(&test_env.graveyard);
     let gravepath = &util::join_absolute(&test_env.graveyard, dunce::canonicalize(cwd).unwrap());
     let result = record.seance(gravepath);
     assert!(result.is_ok());
@@ -909,8 +909,8 @@ fn test_bury_unbury_bury_unbury() {
 
     // Get the record file's contents:
     let record_path = test_env.graveyard.join(record::RECORD);
-    assert!(record_path.exists());
-    let record_contents = fs::read_to_string(&record_path).unwrap();
+    assert!(record_path.clone().exists());
+    let record_contents = fs::read_to_string(record_path.clone()).unwrap();
     println!("Initial record contents:\n{}", record_contents);
 
     assert!(record_contents.contains(&normalized_test_data_path.display().to_string()));
@@ -934,8 +934,8 @@ fn test_bury_unbury_bury_unbury() {
     assert_eq!(restored_data, test_data.data);
 
     // Get the new record file's contents:
-    assert!(record_path.exists());
-    let record_contents = fs::read_to_string(&record_path).unwrap();
+    assert!(record_path.clone().exists());
+    let record_contents = fs::read_to_string(record_path.clone()).unwrap();
     println!("After first unbury, record contents:\n{}", record_contents);
 
     // The record should still have the header:
@@ -987,4 +987,93 @@ fn test_bury_unbury_bury_unbury() {
     assert!(test_data.path.exists());
     let restored_data = fs::read_to_string(&test_data.path).unwrap();
     assert_eq!(restored_data, test_data.data);
+}
+
+/// Test concurrent writes to the pre-existing record file
+#[cfg(not(target_os = "windows"))]
+#[rstest]
+fn test_concurrent_writes(#[values(true, false)] file_lock: bool) {
+    if file_lock {
+        _test_concurrent_writes::<true>();
+    } else {
+        match std::thread::available_parallelism() {
+            Ok(num_threads) if num_threads.get() > 1 => {
+                _test_concurrent_writes::<false>();
+            }
+            _ => {
+                // If we don't have multiple threads, skip this test
+                println!(
+                    "Warning: skipping test_concurrent_writes because we don't have multiple threads"
+                );
+            }
+        }
+    }
+}
+fn _test_concurrent_writes<const FILE_LOCK: bool>() {
+    let _env_lock = aquire_lock();
+    let test_env = TestEnv::new();
+    fs::create_dir(&test_env.graveyard).unwrap();
+    let record = record::Record::<FILE_LOCK>::new(&test_env.graveyard);
+    let record_path = test_env.graveyard.join(record::RECORD);
+
+    // Create two threads that will write to the record simultaneously
+    let barrier = Arc::new(Barrier::new(2));
+
+    let barrier_from_1 = barrier.clone();
+    let record_from_1 = record.clone();
+    let handle1 = std::thread::spawn(move || {
+        barrier_from_1.wait();
+        for i in 0..1000 {
+            record_from_1
+                .write_log(format!("src_path_{}", i), format!("dest_path_{}", i))
+                .unwrap();
+        }
+    });
+
+    let barrier_from_2 = barrier.clone();
+    let record_from_2 = record.clone();
+    let handle2 = std::thread::spawn(move || {
+        barrier_from_2.wait();
+        for i in 1000..2000 {
+            record_from_2
+                .write_log(format!("src_path_{}", i), format!("dest_path_{}", i))
+                .unwrap();
+        }
+    });
+
+    // Wait for both threads to complete
+    handle1.join().unwrap();
+    handle2.join().unwrap();
+
+    let record_contents = fs::read_to_string(record_path.clone()).unwrap();
+
+    // The file should be perfectly formatted if `with_locking` is true,
+    // but corrupted if it is not
+    if FILE_LOCK {
+        assert!(record_contents.contains("Time"));
+        assert!(record_contents.contains("Original"));
+        assert!(record_contents.contains("Destination"));
+    }
+
+    let lines: Vec<&str> = record_contents.lines().collect();
+
+    if FILE_LOCK {
+        assert_eq!(lines.len(), 2001);
+    }
+
+    // Check each of the 2000 lines for corruption
+    let re = regex::Regex::new(
+        r"^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}(\.\d+)?(Z|[+-]\d{2}:\d{2})\t.+\t.+$",
+    )
+    .unwrap();
+    let corrupted_lines = lines
+        .iter()
+        .skip(1)
+        .filter(|line| !re.is_match(line))
+        .count();
+    if FILE_LOCK {
+        assert_eq!(corrupted_lines, 0);
+    } else {
+        assert!(corrupted_lines > 0);
+    }
 }
