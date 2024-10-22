@@ -883,6 +883,7 @@ fn test_bury_unbury_bury_unbury() {
 
     let test_env = TestEnv::new();
     let test_data = TestData::new(&test_env, None);
+    let normalized_test_data_path = dunce::canonicalize(&test_data.path).unwrap();
 
     // First bury
     let expected_graveyard_path = util::join_absolute(
@@ -912,7 +913,6 @@ fn test_bury_unbury_bury_unbury() {
     let record_contents = fs::read_to_string(&record_path).unwrap();
     println!("Initial record contents:\n{}", record_contents);
 
-    let normalized_test_data_path = dunce::canonicalize(&test_data.path).unwrap();
     assert!(record_contents.contains(&normalized_test_data_path.display().to_string()));
 
     // First unbury
@@ -968,7 +968,6 @@ fn test_bury_unbury_bury_unbury() {
     let record_contents = fs::read_to_string(&record_path).unwrap();
     println!("Final record contents:\n{}", record_contents);
 
-    let normalized_test_data_path = dunce::canonicalize(&test_data.path).unwrap();
     assert!(record_contents.contains(&normalized_test_data_path.display().to_string()));
 
     // Second unbury
