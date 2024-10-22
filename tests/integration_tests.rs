@@ -876,3 +876,102 @@ fn many_nest() {
     let new_hash = _hash_dir(&test_env.src);
     assert_eq!(original_hash, new_hash);
 }
+
+#[rstest]
+fn test_bury_unbury_bury_unbury(
+    #[values("bury", "bury_unbury", "bury_unbury_bury", "bury_unbury_bury_unbury")]
+    expected_state: &str,
+) {
+    let _env_lock = aquire_lock();
+
+    let test_env = TestEnv::new();
+    let test_data = TestData::new(&test_env, None);
+
+    // First bury
+    let expected_graveyard_path = util::join_absolute(
+        &test_env.graveyard,
+        dunce::canonicalize(&test_data.path).unwrap(),
+    );
+
+    let mut log = Vec::new();
+    rip2::run(
+        Args {
+            targets: [test_data.path.clone()].to_vec(),
+            graveyard: Some(test_env.graveyard.clone()),
+            ..Args::default()
+        },
+        TestMode,
+        &mut log,
+    )
+    .unwrap();
+
+    // Verify that the file is in the graveyard
+    assert!(!test_data.path.exists());
+    assert!(expected_graveyard_path.exists());
+
+    if expected_state == "bury" {
+        return;
+    }
+
+    // First unbury
+    let mut log = Vec::new();
+    rip2::run(
+        Args {
+            graveyard: Some(test_env.graveyard.clone()),
+            unbury: Some(Vec::new()),
+            ..Args::default()
+        },
+        TestMode,
+        &mut log,
+    )
+    .unwrap();
+
+    // Verify that the file is restored
+    assert!(test_data.path.exists());
+    let restored_data = fs::read_to_string(&test_data.path).unwrap();
+    assert_eq!(restored_data, test_data.data);
+
+    if expected_state == "bury_unbury" {
+        return;
+    }
+
+    // Second bury
+    let mut log = Vec::new();
+    rip2::run(
+        Args {
+            targets: [test_data.path.clone()].to_vec(),
+            graveyard: Some(test_env.graveyard.clone()),
+            ..Args::default()
+        },
+        TestMode,
+        &mut log,
+    )
+    .unwrap();
+
+    // Verify that the file is in the graveyard again
+    assert!(!test_data.path.exists());
+    assert!(expected_graveyard_path.exists());
+
+    if expected_state == "bury_unbury_bury" {
+        return;
+    }
+
+    // Second unbury
+    let mut log = Vec::new();
+    rip2::run(
+        Args {
+            graveyard: Some(test_env.graveyard.clone()),
+            unbury: Some(Vec::new()),
+            ..Args::default()
+        },
+        TestMode,
+        &mut log,
+    )
+    .unwrap();
+
+    // Verify that the file is restored again
+    assert!(test_data.path.exists());
+    let restored_data = fs::read_to_string(&test_data.path).unwrap();
+    assert_eq!(restored_data, test_data.data);
+    assert!(expected_state == "bury_unbury_bury_unbury");
+}
