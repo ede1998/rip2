@@ -176,6 +176,9 @@ impl<const FILE_LOCK: bool> Record<FILE_LOCK> {
 
         let already_existed = self.path.exists();
 
+        // TODO: The tiny amount of time between the check and the open
+        //       could allow for a race condition. But maybe I'm being overkill.
+
         let mut record_file = if already_existed {
             fs::OpenOptions::new().append(true).open(&self.path)?
         } else {
