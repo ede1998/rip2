@@ -1,5 +1,14 @@
 # Changelog
 
+## [0.8.3](https://github.com/MilesCranmer/rip2/compare/v0.8.2...v0.8.3) (2024-10-22)
+
+
+### Bug Fixes
+
+* [#54](https://github.com/MilesCranmer/rip2/issues/54) with missed metadata ([a44e992](https://github.com/MilesCranmer/rip2/commit/a44e992b4ba8d99145b8180fef2d29fefd339926))
+* mistaken deletion of header when deleting lines ([bbebe2d](https://github.com/MilesCranmer/rip2/commit/bbebe2d8590b61bbf684dcc751ec8ca3590fe0be))
+* potential issue with missing header ([0a7e2bc](https://github.com/MilesCranmer/rip2/commit/0a7e2bcf01690ffd770261e88e634b88536d3793))
+
 ## [0.8.2](https://github.com/MilesCranmer/rip2/compare/v0.8.1...v0.8.2) (2024-08-12)
 
 
