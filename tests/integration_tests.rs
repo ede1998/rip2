@@ -876,3 +876,115 @@ fn many_nest() {
     let new_hash = _hash_dir(&test_env.src);
     assert_eq!(original_hash, new_hash);
 }
+
+#[rstest]
+fn test_bury_unbury_bury_unbury() {
+    let _env_lock = aquire_lock();
+
+    let test_env = TestEnv::new();
+    let test_data = TestData::new(&test_env, None);
+    let normalized_test_data_path = dunce::canonicalize(&test_data.path).unwrap();
+
+    // First bury
+    let expected_graveyard_path = util::join_absolute(
+        &test_env.graveyard,
+        dunce::canonicalize(&test_data.path).unwrap(),
+    );
+
+    let mut log = Vec::new();
+    rip2::run(
+        Args {
+            targets: [test_data.path.clone()].to_vec(),
+            graveyard: Some(test_env.graveyard.clone()),
+            ..Args::default()
+        },
+        TestMode,
+        &mut log,
+    )
+    .unwrap();
+
+    // Verify that the file is in the graveyard
+    assert!(!test_data.path.exists());
+    assert!(expected_graveyard_path.exists());
+
+    // Get the record file's contents:
+    let record_path = test_env.graveyard.join(record::RECORD);
+    assert!(record_path.exists());
+    let record_contents = fs::read_to_string(&record_path).unwrap();
+    println!("Initial record contents:\n{}", record_contents);
+
+    assert!(record_contents.contains(&normalized_test_data_path.display().to_string()));
+
+    // First unbury
+    let mut log = Vec::new();
+    rip2::run(
+        Args {
+            graveyard: Some(test_env.graveyard.clone()),
+            unbury: Some(Vec::new()),
+            ..Args::default()
+        },
+        TestMode,
+        &mut log,
+    )
+    .unwrap();
+
+    // Verify that the file is restored
+    assert!(test_data.path.exists());
+    let restored_data = fs::read_to_string(&test_data.path).unwrap();
+    assert_eq!(restored_data, test_data.data);
+
+    // Get the new record file's contents:
+    assert!(record_path.exists());
+    let record_contents = fs::read_to_string(&record_path).unwrap();
+    println!("After first unbury, record contents:\n{}", record_contents);
+
+    // The record should still have the header:
+    assert!(record_contents.contains("Time"));
+    assert!(record_contents.contains("Original"));
+    assert!(record_contents.contains("Destination"));
+
+    // Second bury
+    let mut log = Vec::new();
+    rip2::run(
+        Args {
+            targets: [test_data.path.clone()].to_vec(),
+            graveyard: Some(test_env.graveyard.clone()),
+            ..Args::default()
+        },
+        TestMode,
+        &mut log,
+    )
+    .unwrap();
+
+    // Verify that the file is in the graveyard again
+    assert!(!test_data.path.exists());
+    assert!(expected_graveyard_path.exists());
+
+    // Print the contents of the .record file
+    let record_path = test_env.graveyard.join(record::RECORD);
+    assert!(record_path.exists());
+
+    // Make sure the record file contains the path
+    let record_contents = fs::read_to_string(&record_path).unwrap();
+    println!("Final record contents:\n{}", record_contents);
+
+    assert!(record_contents.contains(&normalized_test_data_path.display().to_string()));
+
+    // Second unbury
+    let mut log = Vec::new();
+    rip2::run(
+        Args {
+            graveyard: Some(test_env.graveyard.clone()),
+            unbury: Some(Vec::new()),
+            ..Args::default()
+        },
+        TestMode,
+        &mut log,
+    )
+    .unwrap();
+
+    // Verify that the file is restored again
+    assert!(test_data.path.exists());
+    let restored_data = fs::read_to_string(&test_data.path).unwrap();
+    assert_eq!(restored_data, test_data.data);
+}
