@@ -910,8 +910,10 @@ fn test_bury_unbury_bury_unbury() {
     let record_path = test_env.graveyard.join(record::RECORD);
     assert!(record_path.exists());
     let record_contents = fs::read_to_string(&record_path).unwrap();
-    assert!(record_contents.contains(&test_data.path.display().to_string()));
     println!("Initial record contents:\n{}", record_contents);
+
+    let normalized_test_data_path = dunce::canonicalize(&test_data.path).unwrap();
+    assert!(record_contents.contains(&normalized_test_data_path.display().to_string()));
 
     // First unbury
     let mut log = Vec::new();
@@ -964,9 +966,10 @@ fn test_bury_unbury_bury_unbury() {
 
     // Make sure the record file contains the path
     let record_contents = fs::read_to_string(&record_path).unwrap();
-    assert!(record_contents.contains(&test_data.path.display().to_string()));
-
     println!("Final record contents:\n{}", record_contents);
+
+    let normalized_test_data_path = dunce::canonicalize(&test_data.path).unwrap();
+    assert!(record_contents.contains(&normalized_test_data_path.display().to_string()));
 
     // Second unbury
     let mut log = Vec::new();
