@@ -98,15 +98,19 @@ impl Record {
     fn delete_lines(&self, record_file: fs::File, graves: &[PathBuf]) -> Result<(), Error> {
         let record_path = &self.path;
         // Get the lines to write back to the record, which is every line except
-        // the ones matching the exhumed graves.  Store them in a vector
+        // the ones matching the exhumed graves. Store them in a vector
         // since we'll be overwriting the record in-place.
         let mut reader = BufReader::new(record_file).lines();
-        reader.next();
+        let header = reader
+            .next()
+            .unwrap_or_else(|| Ok(String::new()))
+            .unwrap_or_default(); // Capture the header
         let lines_to_write: Vec<String> = reader
             .map_while(Result::ok)
             .filter(|line| !graves.iter().any(|y| *y == RecordItem::new(line).dest))
             .collect();
         let mut mutable_record_file = fs::File::create(record_path)?;
+        writeln!(mutable_record_file, "{}", header)?; // Write the header back
         for line in lines_to_write {
             writeln!(mutable_record_file, "{}", line)?;
         }
