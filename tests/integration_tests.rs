@@ -913,6 +913,13 @@ fn test_bury_unbury_bury_unbury(
         return;
     }
 
+    // Get the record file's contents:
+    let record_path = test_env.graveyard.join(record::RECORD);
+    assert!(record_path.exists());
+    let record_contents = fs::read_to_string(&record_path).unwrap();
+    assert!(record_contents.contains(&test_data.path.display().to_string()));
+    println!("Initial record contents:\n{}", record_contents);
+
     // First unbury
     let mut log = Vec::new();
     rip2::run(
@@ -930,6 +937,16 @@ fn test_bury_unbury_bury_unbury(
     assert!(test_data.path.exists());
     let restored_data = fs::read_to_string(&test_data.path).unwrap();
     assert_eq!(restored_data, test_data.data);
+
+    // Get the new record file's contents:
+    assert!(record_path.exists());
+    let record_contents = fs::read_to_string(&record_path).unwrap();
+    println!("After first unbury, record contents:\n{}", record_contents);
+
+    // The record should still have the header:
+    assert!(record_contents.contains("Time"));
+    assert!(record_contents.contains("Original"));
+    assert!(record_contents.contains("Destination"));
 
     if expected_state == "bury_unbury" {
         return;
@@ -951,6 +968,16 @@ fn test_bury_unbury_bury_unbury(
     // Verify that the file is in the graveyard again
     assert!(!test_data.path.exists());
     assert!(expected_graveyard_path.exists());
+
+    // Print the contents of the .record file
+    let record_path = test_env.graveyard.join(record::RECORD);
+    assert!(record_path.exists());
+
+    // Make sure the record file contains the path
+    let record_contents = fs::read_to_string(&record_path).unwrap();
+    assert!(record_contents.contains(&test_data.path.display().to_string()));
+
+    println!("Final record contents:\n{}", record_contents);
 
     if expected_state == "bury_unbury_bury" {
         return;
