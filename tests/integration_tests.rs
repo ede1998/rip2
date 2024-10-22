@@ -638,7 +638,7 @@ fn issue_0018() {
         assert!(!record_contents.contains("gnu_meta.zip"));
 
         // And give this for the last bury
-        let record = record::Record::<true>::new(&test_env.graveyard);
+        let record = record::Record::<{record::DEFAULT_FILE_LOCK}>::new(&test_env.graveyard);
         let last_bury = record.get_last_bury().unwrap();
         assert!(last_bury.ends_with("uu_meta.zip"));
     }
@@ -708,7 +708,7 @@ fn read_empty_record() {
     let test_env = TestEnv::new();
     let cwd = env::current_dir().unwrap();
     fs::create_dir(&test_env.graveyard).unwrap();
-    let record = record::Record::<true>::new(&test_env.graveyard);
+    let record = record::Record::<{record::DEFAULT_FILE_LOCK}>::new(&test_env.graveyard);
     let gravepath = &util::join_absolute(&test_env.graveyard, dunce::canonicalize(cwd).unwrap());
     let result = record.seance(gravepath);
     assert!(result.is_ok());
@@ -990,8 +990,11 @@ fn test_bury_unbury_bury_unbury() {
 }
 
 /// Test concurrent writes to the pre-existing record file
+#[cfg(not(target_os = "windows"))]
 #[rstest]
-fn test_concurrent_writes(#[values(false, true)] file_lock: bool) {
+fn test_concurrent_writes(
+    #[values(true, false)] file_lock: bool
+) {
     if file_lock {
         _test_concurrent_writes::<true>();
     } else {

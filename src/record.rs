@@ -42,6 +42,13 @@ pub struct Record<const FILE_LOCK: bool> {
     path: PathBuf,
 }
 
+#[cfg(not(target_os = "windows"))]
+pub const DEFAULT_FILE_LOCK: bool = true;
+
+#[cfg(target_os = "windows")]
+pub const DEFAULT_FILE_LOCK: bool = false;
+// TODO: Investigate why this is needed. Does Windows not support file locks?
+
 impl<const FILE_LOCK: bool> Record<FILE_LOCK> {
     pub fn new(graveyard: &Path) -> Record<FILE_LOCK> {
         let path = graveyard.join(RECORD);

@@ -19,7 +19,7 @@ pub mod record;
 pub mod util;
 
 use args::Args;
-use record::{Record, RecordItem};
+use record::{Record, RecordItem, DEFAULT_FILE_LOCK};
 
 const LINES_TO_INSPECT: usize = 6;
 const FILES_TO_INSPECT: usize = 6;
@@ -42,7 +42,7 @@ pub fn run(cli: Args, mode: impl util::TestingMode, stream: &mut impl Write) -> 
     }
 
     // Stores the deleted files
-    let record = Record::<true>::new(graveyard);
+    let record = Record::<DEFAULT_FILE_LOCK>::new(graveyard);
     let cwd = &env::current_dir()?;
 
     // If the user wishes to restore everything
