@@ -40,6 +40,14 @@ This package is supported on Linux, macOS, and Windows.
 $ cargo install --locked rip2
 ```
 
+### Homebrew
+
+On macOS or Linux with Homebrew installed:
+
+```bash
+$ brew install rip2
+```
+
 ### Binaries
 
 Binary releases for different architectures and operating systems are
@@ -113,6 +121,12 @@ nix shell "github:MilesCranmer/rip2"
 ```
 zypper ar -f obs://utilities
 zypper in rip2
+```
+
+### Termux
+
+```bash
+pkg install rip2
 ```
 
 </details>
