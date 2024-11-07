@@ -1,0 +1,41 @@
+#!/usr/bin/env expect                                      
+log_user 0
+set prompt {/@}
+set cmd "rip "
+set bash_completion_pkg $::env(BASH_COMPLETION_PKG)
+
+proc line_count {str} {
+    regexp -all \n $str
+}
+
+# start bash with no startup files for clean env
+spawn env INPUTRC=/dev/null PS1=$prompt bash --norc
+expect $prompt
+# set some readline variables for consistent completion output
+send "bind 'set show-all-if-ambiguous on'\r"
+expect $prompt
+send "bind 'set bell-style none'\r"
+expect $prompt
+send "bind 'set completion-query-items -1'\r"
+expect $prompt
+send "bind 'set page-completions off'\r"
+expect $prompt
+send "bind 'set completion-display-width 0'\r"
+expect $prompt
+send "source $bash_completion_pkg/etc/profile.d/bash_completion.sh\r"
+expect $prompt
+send "echo $?\r"
+expect -re "0\r\n.*$prompt"
+
+# run the completion
+send "$cmd\t $prompt"
+expect -re "^$cmd\r\n(.*)\r\n$prompt$cmd" {
+    puts "Completions:\n$expect_out(1,string)\n"
+    set completion_count [line_count $expect_out(1,string)]
+    puts "Found $completion_count completions, expecting at least 10"
+    if {$completion_count > 10} {
+        exit 0
+    }
+}
+
+exit 1

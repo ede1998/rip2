@@ -77,6 +77,9 @@ jobs:
         run: ./result/bin/rip --version
       - name: Test default app
         run: nix run . -- --help
+      - name: Test shell completions
+        # pre-fetch bash-completion then get its path in the store
+        run: nix build nixpkgs#bash-completion; BASH_COMPLETION_PKG=$(nix path-info nixpkgs#bash-completion) nix shell . nixpkgs#expect nixpkgs#bash-completion -c tests/shell_completions.exp
 
   release-please:
     name: Execute release chores
