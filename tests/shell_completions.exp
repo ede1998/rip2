@@ -34,6 +34,10 @@ expect $prompt_success
 # Source bash-completion's basic script which should load rip's completion (when first tab is pressed)
 send "source $bash_completion_pkg/etc/profile.d/bash_completion.sh\r"
 expect $prompt_success
+send "cat $bash_completion_pkg/etc/profile.d/bash_completion.sh\r"
+expect $prompt_success
+send "complete -p\r"
+expect $prompt_success
 
 # Enter temporary folder to avoid listing files if completion is not loaded properly
 set tmp_dir [exec "mktemp" "-d"]
