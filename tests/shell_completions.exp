@@ -5,7 +5,7 @@
 # https://gist.github.com/ksafranski/6294378
 
 # Disable debug options
-log_user 0
+log_user 1
 exp_internal 0
 
 set prompt_success {0 /@}
