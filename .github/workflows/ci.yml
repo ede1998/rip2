@@ -36,5 +36,9 @@ jobs:
       - name: Install Nix
         uses: DeterminateSystems/nix-installer-action@v3
       - name: Test shell completions
-        # pre-fetch bash-completion then get its path in the store
-        run: nix build nixpkgs#bash-completion; BASH_COMPLETION_PKG=$(nix path-info nixpkgs#bash-completion) nix shell . nixpkgs#expect nixpkgs#bash-completion -c tests/shell_completions.exp
+        run: |
+          # pre-fetch bash-completion then get its path in the store
+          nix build nixpkgs#bash-completion
+          export BASH_COMPLETION_PKG=$(nix path-info nixpkgs#bash-completion)
+          # use bashInteractive from nixpkgs because default bash is too old for bash-completion on macOS
+          nix shell . nixpkgs#expect nixpkgs#bash-completion nixpkgs#bashInteractive -c tests/shell_completions.exp
