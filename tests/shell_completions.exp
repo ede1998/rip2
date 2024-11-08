@@ -31,6 +31,38 @@ expect $prompt_success
 send "bind 'set completion-display-width 0'\r"
 expect $prompt_success
 
+puts "\n\nThese should not be empty:"
+send "echo \$BASH_VERSION\r"
+expect $prompt_success
+send "echo \$PS1\r"
+expect $prompt_success
+puts "\n\nThis should be empty:"
+send "echo \$BASH_COMPLETION_VERSINFO\r"
+expect $prompt_success
+puts "\n\nThis should be greater than 4 2:"
+send "echo \${BASH_VERSINFO\[@]}\r"
+expect $prompt_success
+puts "\n\nShould be on:"
+send "shopt progcomp\r"
+expect $prompt_success
+send "echo \$HOME\r"
+expect $prompt_success
+send "echo \$XDG_CONFIG_HOME\r"
+expect $prompt_success
+puts "\n\nShould exist"
+send {[ -r "${XDG_CONFIG_HOME:-$HOME/.config}/bash_completion" ] && echo '${XDG_CONFIG_HOME:-$HOME/.config}/bash_completion exists' || echo '${XDG_CONFIG_HOME:-$HOME/.config}/bash_completion missing'}
+send "\r"
+expect $prompt_success
+set check_cmd {[ -r }
+append check_cmd $bash_completion_pkg/share/bash-completion/bash_completion
+append check_cmd { ] && echo }
+append check_cmd $bash_completion_pkg/share/bash-completion/bash_completion
+append check_cmd { exists || echo }
+append check_cmd $bash_completion_pkg/share/bash-completion/bash_completion
+append check_cmd " missing\r"
+send $check_cmd
+expect $prompt_success
+
 # Source bash-completion's basic script which should load rip's completion (when first tab is pressed)
 send "source $bash_completion_pkg/etc/profile.d/bash_completion.sh\r"
 expect $prompt_success
